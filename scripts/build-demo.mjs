@@ -1,0 +1,10 @@
+import {readFile,mkdir,writeFile} from 'node:fs/promises';
+const root=new URL('../',import.meta.url);
+const html=await readFile(new URL('index.html',root),'utf8');
+const css=await readFile(new URL('styles.css',root),'utf8');
+const domain=(await readFile(new URL('domain.mjs',root),'utf8')).replace(/\bexport /g,'');
+const app=(await readFile(new URL('app.js',root),'utf8')).replace(/^import .*?;\n/,'');
+const output=html.replace('<link rel="stylesheet" href="./styles.css">',`<style>${css}</style>`).replace('<script type="module" src="./app.js"></script>',`<script type="module">${domain}\n${app}</script>`);
+await mkdir(new URL('dist/',root),{recursive:true});
+await writeFile(new URL('dist/ERP_FeS_Demonstracao.html',root),output);
+console.log('Gerado: dist/ERP_FeS_Demonstracao.html');
