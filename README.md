@@ -1,54 +1,57 @@
-# FeS — Protótipo de ERP
+# ERP Fasolo e Simon · 0.4 em desenvolvimento
 
-Protótipo navegável para computador do ERP da Fasolo e Simon, com dados fictícios. Não utiliza dados reais do Sienge nem acessa o OneDrive.
+Esta branch implementa registros compartilhados, permissões no servidor, histórico e anexos para a próxima versão. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
-## Código e contexto
+**Nenhum site existente foi substituído ou publicado.** O backend foi validado com D1/R2 no runtime local da Cloudflare. A conexão ao login real do ChatGPT e o manifesto do Sites ainda dependem do starter oficial: o adapter de produção falha com 503 enquanto não estiver conectado. Não apresentar esta branch como ERP já funcionando no Sites.
 
-Repositório: https://github.com/brunomezz/RP. As decisões e o estado do projeto estão em [docs/CONTEXTO.md](docs/CONTEXTO.md). A publicação do código no GitHub não cria hospedagem do site.
+## Arquitetura
 
-Para rodar após clonar o repositório, entre na pasta `RP` e execute `npm start`. O aplicativo não exige dependências externas.
+- Interface HTML/CSS/JavaScript preservada, agora consumindo `/api/*` na mesma origem. Atualiza ao entrar, abrir outra tela e clicar em **Atualizar**. Sem gravação de registros em localStorage ou IndexedDB; sem sincronização automática de formulários abertos.
+- Backend Fetch/Workers em `hosting/worker.mjs` e `shared/api.mjs`, sem servidor Node em produção. Pode ser chamado pelas rotas do starter com os bindings D1/R2 e a identidade autenticada pelo helper oficial.
+- **DB**: D1/SQLite persistente. Obras e funções por identidade em `memberships`; estado operacional em `erp_state`; operações idempotentes, auditoria e metadados de arquivos em tabelas próprias.
+- **BUCKET**: R2 privado. Upload/download passam pelo backend; o cliente não recebe acesso direto ao bucket. Até **10 MiB (10 × 1024² bytes)** por arquivo, preservando o limite anterior.
+- **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem cadastro interno, retorna 403.
+- Exemplos fictícios e a versão offline estão em `prototype/`. O banco de produção começa sem solicitações, pedidos, contratos, estoque, materiais ou usuários de teste. Nenhum dado antigo do navegador é enviado, alterado ou removido.
 
-## Abrir sem instalação
+A escolha do backend nativo segue as capacidades informadas da documentação [Sites](https://learn.chatgpt.com/docs/sites): D1, R2 e autenticação gerenciada. Supabase via HTTPS exigiria outro provisionamento e uma sessão autenticada própria; a identidade do ChatGPT não é automaticamente uma sessão do Supabase. O backend nativo evita essa dependência. O esquema exato do manifesto e a assinatura do helper não puderam ser conferidos neste ambiente: a consulta direta à documentação recebeu bloqueio do proxy. Não foi inventado um `.openai/hosting.json`.
 
-Execute `npm run demo` para gerar `dist/ERP_FeS_Demonstracao.html`. O arquivo é autocontido: pode ser aberto no Chrome ou Edge com um duplo clique, sem servidor, internet ou dependências adicionais. Os dados ficam neste navegador e não são compartilhados com a equipe.
+## Desenvolver e testar separadamente
 
-## Executar
-
-Requer Node.js 20 ou superior. Sem dependências externas.
+Node.js **22 ou superior**; dependências fixadas no lockfile. Neste ambiente o checkout de desenvolvimento está em `/workspace/RP-shared`, branch `codex/shared-erp`; o checkout anterior permanece em `/workspace/RP`.
 
 ```sh
-cd /workspace/RP
+npm ci --cache /tmp/fes-npm-cache
+npm run check
 npm start
 ```
 
-O servidor usa a porta 3000; `PORT=3001 npm start` permite outra porta. Abra o protótipo pelo navegador disponibilizado no seu ambiente de desenvolvimento. A execução local também pode ser feita em um computador com Node.js.
+`npm start` executa **somente desenvolvimento**, em `127.0.0.1:3010`, usando Miniflare/workerd, D1 local persistente e R2 local. A faixa “DESENVOLVIMENTO LOCAL” permite trocar entre identidades fictícias de teste. Esse mecanismo não integra o build do Sites. `PORT` altera a porta; `FES_DEV_DATA_DIR` escolhe um diretório isolado de dados, padrão `.dev-data/` (ignorado pelo Git). Reiniciar o processo conserva os dados desse diretório; apagá-lo apaga apenas o ambiente local. Não usar esse servidor como login ou hospedagem de produção.
 
 ```sh
-npm test
+npm test                   # 13 testes de domínio/filtros
+npm run test:integration   # 9 testes D1/R2, autenticação de teste e concorrência
+npm run build:sites        # bundle Fetch, sem publicação
+npm run demo               # HTML offline separado, somente exemplos locais
 ```
 
-## Fluxo para experimentar
+Teste opcional de navegador, com o servidor de desenvolvimento ativo, Python, Playwright e Chromium instalados:
 
-1. Em Solicitações, abra SOL-001 e aprove a necessidade na engenharia.
-2. Em Cotações, adicione três fornecedores com preços e condições. Se houver menos, informe uma exceção. Sugira fornecedores por item e envie ao diretor. Anexe documentos às propostas quando necessário.
-3. Em Aprovações, o diretor escolhe o fornecedor de cada item, confirma a previsão de chegada e aprova a contratação; pedidos são emitidos por fornecedor.
-4. Em Pedidos, acompanhe e ajuste a chegada estimada por item. Adicione anexos ao pedido ou ao recebimento e registre entregas parciais com uma nota fiscal fictícia.
-5. Em Estoque, confira o saldo e registre saída vinculada a um serviço.
-6. SOL-004 permite experimentar contrato de serviço e medição.
+```sh
+python tests/browser_shared.py
+```
 
-Cada item solicitado possui data necessária e local próprios. Solicitações anteriores são adaptadas usando a data e o local anteriormente registrados, sem apagar os dados.
+`FES_CHROMIUM` indica o executável, padrão `/usr/bin/chromium`. Os resultados e seu alcance estão em [docs/TESTES_COMPARTILHADOS.md](docs/TESTES_COMPARTILHADOS.md).
 
-As mudanças são guardadas no localStorage do navegador. Os arquivos anexos ficam no IndexedDB, no mesmo navegador, com limite de 10 MB por arquivo e opção de download. Não são enviados para servidores nem incluídos automaticamente no HTML distribuído. Limpar os dados do navegador remove também os anexos. “Restaurar exemplos” limpa as mudanças demonstrativas. Não há login, banco compartilhado, controle real de permissões nem sincronização entre computadores. Todas as equipes podem ser simuladas na mesma interface.
+## Implantar posteriormente no Sites
 
-## Limites desta versão
+Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 
-- É possível escolher um fornecedor por item e emitir documentos separados. O frete é aplicado uma vez por fornecedor; negociar e registrar os valores para o escopo selecionado.
-- Catálogo demonstrativo fixo; fotos na solicitação, cadastro completo de fornecedores e importação do Sienge ainda não implementados.
-- Orçamento usa valores fictícios; comprometido por serviço exclui frete e não representa apropriação contábil oficial.
-- Pedidos e contratos são registros internos de demonstração; não emitem documentos fiscais ou jurídicos.
-- Medições são demonstrativas, sem retenções, assinaturas, emissão de boletins ou fluxo próprio de aprovação.
-- Recebimento atualiza saldo físico; reservas, bloqueio por inspeção, devoluções e transferências ainda não implementados.
-- Contratações mistas separam material e serviço. Nesta demonstração, frete fica no pedido de materiais do fornecedor; se houver apenas serviço, fica no contrato. Não há rateio do frete por serviço orçamentário.
-- Revisão de solicitação antes da emissão reinicia a aprovação e arquiva as propostas anteriores; revisão após emissão ainda não disponível.
+Faltam o exemplo oficial de `.openai/hosting.json`, o import/assinatura do helper `requireChatGPTUser()`, e acesso à homologação do Sites para provisionar e verificar os recursos e sessões reais. Até então, o adapter de produção bloqueia acesso. Nenhum segredo deve ser enviado pelo chat ou colocado no código, no manifesto ou no GitHub.
 
-Não usar para operação real. A próxima etapa é validar as telas com a equipe e então implementar persistência compartilhada, autenticação e permissões.
+## Integridade e limites
+
+Comandos específicos validam função, obra, conteúdo, etapa e revisão do registro. O servidor não aceita um estado completo enviado pelo navegador. Cada comando usa `Idempotency-Key`; edição concorrente retorna 409. Mudança operacional, auditoria, idempotência e vinculação de arquivos são gravadas em um batch transacional D1 com comparação de revisão. Um batch que perde a disputa não insere auditoria nem finaliza arquivos. Recebimentos e saídas atualizam estoque dentro dessa mesma operação.
+
+Esta implementação inicial mantém o estado operacional em um agregado JSON, limitado conservadoramente a **1 MiB**, com tabelas separadas para acesso, auditoria, operações e arquivos. Isso simplifica a integridade do fluxo existente, mas serializa escritas e não é adequado a um ERP de grande volume. Ao atingir o limite, novas escritas são recusadas sem apagar dados. Antes de ampliar o uso, normalizar as entidades e migrar transações, mantendo as garantias e os testes. O orçamento real precisa ser configurado por obra; não há integração contábil/fiscal, pagamentos, reservas de estoque, retenções ou revisão após emissão.
+
+Não há importação nesta versão. Caso necessária, desenvolver uma importação explícita e validada com identificadores de origem e prevenção de duplicidade; não copiar o snapshot do navegador para o D1. O histórico da API limita a consulta a 500 ações recentes por obra; o histórico dos registros continua no estado. Ainda faltam paginação da auditoria e rotina automática de limpeza dos uploads abandonados. A publicação no GitHub não implanta o ERP nem comprova funcionamento no Sites.

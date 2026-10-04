@@ -1,0 +1,11 @@
+{
+  "works": [
+    {"id": "OBRA_ID", "name": "Nome real da obra", "services": [
+      {"id": "SERVICO_ID", "name": "Código e nome do serviço do orçamento", "budget": null},
+      {"id": "nao-previsto", "name": "Despesa não prevista", "budget": null}
+    ]}
+  ],
+  "memberships": [
+    {"userId": "IDENTIDADE_ESTAVEL_DO_CHATGPT", "workId": "OBRA_ID", "role": "almoxarifado"}
+  ]
+}

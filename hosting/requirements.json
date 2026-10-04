@@ -1,0 +1,9 @@
+{
+  "description": "Requisitos para adaptar ao manifesto OFICIAL do starter Sites; este arquivo não é um manifesto de publicação.",
+  "serverEntry": "hosting/worker.mjs",
+  "publicDirectory": "dist/sites/public",
+  "bindings": {"DB": "Cloudflare D1", "BUCKET": "Cloudflare R2 privado", "ASSETS": "Adaptar ao roteamento estático do starter"},
+  "authentication": "Sign in with ChatGPT; requireChatGPTUser no servidor, adaptado a {id,name}",
+  "migrationDirectory": "migrations",
+  "environment": "homologação nova, recursos separados da produção"
+}

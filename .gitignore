@@ -1,1 +1,8 @@
 dist/
+node_modules/
+.dev-data/
+.wrangler/
+.env
+.env.*
+.dev.vars
+*.local.json
