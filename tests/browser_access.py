@@ -44,6 +44,16 @@ with sync_playwright() as p:
         expect(page.locator('#identity')).to_have_text('Teste · Sem função')
         expect(page.locator('main > .demo').first).not_to_contain_text('Conectando')
         page.unroute('**/api/session')
+    page.route('**/api/session',lambda r:r.fulfill(status=503,json={'error':'Configuração incompleta.','code':'ERP_SETUP_REQUIRED'}))
+    page.reload();expect(page.get_by_role('heading',name='Configuração pendente')).to_be_visible();page.unroute('**/api/session')
+    # Advance the browser clock while a fetch remains pending, to exercise its real timeout.
+    pending_routes=[];page.clock.install();page.route('**/api/session',lambda r:pending_routes.append(r))
+    page.reload();expect(page.get_by_role('heading',name='Verificando acesso…')).to_be_visible()
+    page.wait_for_timeout(100);page.clock.fast_forward(21000)
+    expect(page.get_by_role('heading',name='Servidor indisponível')).to_be_visible()
+    assert pending_routes
+    for route in pending_routes:route.abort('timedout')
+    page.unroute('**/api/session')
     page.locator('#dev-persona').select_option('user1');page.locator('#dev-login').click()
     expect(page.get_by_role('heading',name='Painel de suprimentos',exact=True)).to_be_visible()
     page.request.post(url+'/dev/logout')
@@ -52,4 +62,4 @@ with sync_playwright() as p:
     expect(page.locator('#identity')).to_have_text('Login necessário')
     assert not errors,errors
     browser.close()
-print('PASS: ausência de login; login reconhecido sem função; recuperação sem reload; acesso revogado; sessão encerrada; 503; falha de rede; resposta HTML inesperada.')
+print('PASS: ausência de login; login reconhecido sem função; recuperação sem reload; acesso revogado; sessão encerrada; 503; falha de rede; resposta HTML inesperada; configuração pendente; tempo limite.')

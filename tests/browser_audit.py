@@ -64,8 +64,8 @@ with sync_playwright() as p:
     with s.expect_download() as down:s.get_by_role('button',name='Exportar CSV').click()
     assert tag in Path(down.value.path()).read_text(encoding='utf-8-sig')
     # Suprimentos updates arrival and adds order attachments.
-    view(s,'pedidos');s.locator('[data-action="order"][data-id="'+o['id']+'"]').click();s.locator('[name="arrival-0"]').fill('2026-11-09');s.get_by_role('button',name='Salvar previsões de chegada').click();s.wait_for_function("document.body.getAttribute('aria-busy') !== 'true'");expect(s.locator('[name="arrival-0"]')).to_have_value('2026-11-09')
-    s.locator('#order-files').set_input_files(file);s.get_by_role('button',name='Salvar anexos do pedido').click();expect(s.locator('#dialog-content')).to_contain_text('audit.txt')
+    view(s,'pedidos');s.locator('[data-action="order"][data-id="'+o['id']+'"]').click();s.locator('#order-files').set_input_files(file);s.locator('[name="arrival-0"]').fill('2026-11-09');s.get_by_role('button',name='Salvar previsões de chegada').click();s.wait_for_function("document.body.getAttribute('aria-busy') !== 'true'");expect(s.locator('[name="arrival-0"]')).to_have_value('2026-11-09')
+    assert s.locator('#order-files').evaluate('(el)=>el.files[0]?.name')=='audit.txt';s.locator('[name="arrival-0"]').fill('2026-11-08');s.get_by_role('button',name='Salvar anexos do pedido').click();expect(s.locator('#dialog-content')).to_contain_text('audit.txt');expect(s.locator('[name="arrival-0"]')).to_have_value('2026-11-08')
     # Partial decimal receipt closes exactly, includes receipt attachments.
     for quantity in ['0.1','0.2']:
         view(a,'pedidos');a.locator('[data-action="order"][data-id="'+o['id']+'"]').click();expect(a.locator('[name="qty-0"]')).to_have_attribute('max','0.3' if quantity=='0.1' else '0.2');a.locator('[name="qty-0"]').fill(quantity);a.locator('[name="nf"]').fill(tag+' NF '+quantity)

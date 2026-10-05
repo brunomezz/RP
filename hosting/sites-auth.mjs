@@ -5,5 +5,6 @@ export async function requireSiteUser(_request, _env) {
     "Autenticação do Sites ainda não conectada ao helper oficial do starter.",
   );
   error.status = 503;
+  error.code = "ERP_SETUP_REQUIRED";
   throw error;
 }

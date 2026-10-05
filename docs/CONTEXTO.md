@@ -18,7 +18,7 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.4, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.5, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
 A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Não há importação nesta versão.
 
@@ -30,6 +30,14 @@ Backend Fetch/Workers para Sites com D1 (`DB`), R2 privado (`BUCKET`) e Sign in 
 
 Comandos aceitam campos específicos e revisão esperada; rejeitam ações fora de função/obra/etapa. Um batch D1 transacional compara a revisão e grava operação, auditoria e finalização de anexos junto ao estado. A mesma chave idempotente não executa novamente; revisão desatualizada retorna 409. Identidade e horário do histórico vêm do servidor. Arquivos reservados são enviados ao R2 e ficam acessíveis somente depois de vinculados por comando autorizado.
 
+## Administração de acesso na versão 0.5
+
+A aba **Segurança** administra usuários, vínculos por obra e poderes dos quatro cargos. Os poderes iniciais preservam as responsabilidades descritas acima; o administrador pode delegar/remover ações explicitamente. Administração não concede acesso operacional automático. A leitura dos registros da obra exige vínculo ativo; os cadastros da empresa continuam compartilhados entre pessoas com acesso operacional.
+
+`migrations/0002_security.sql` preserva os vínculos atuais e acrescenta usuários, administradores, poderes dos cargos, revisão de segurança, auditoria e idempotência administrativas. Todas as mudanças exigem motivo. Há proteção do último administrador ativo, validação por ação no servidor e conferência da revisão de segurança no commit operacional. O primeiro administrador é explicitamente configurado pelo operador do ambiente; demais concessões podem ser feitas pela aba. Procedimento: [SEGURANCA.md](SEGURANCA.md).
+
+A pessoa aparece para o administrador depois de entrar uma vez, mesmo que ainda não tenha cargo. Após a liberação, Verificar acesso permite continuar sem recarregar. Suspensão e configuração pendente têm mensagens próprias. As chamadas têm tempo limite de 20 segundos, inclusive downloads. Os outros formulários do pedido preservam campos e anexos ainda não salvos ao gravar previsão, anexo ou recebimento.
+
 ## Correções da auditoria funcional
 
 Login, acesso interno e indisponibilidade são apresentados separadamente; um login válido sem função/obra mostra **Acesso ao ERP pendente**, identifica a pessoa e oferece **Verificar acesso**. Os dados carregados são descartados quando a sessão ou o acesso deixam de ser válidos. A API continua exigindo as permissões existentes.
@@ -40,7 +48,7 @@ Escopo, evidências e recomendações por setor: [AUDITORIA_FUNCIONAL.md](AUDITO
 
 ## Verificação e configuração pendente
 
-14 testes de domínio e 9 testes de integração passaram. Três roteiros Chromium passaram: compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
+14 testes de domínio e 19 testes de integração passaram. Quatro roteiros Chromium passaram: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
 
 A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto. O usuário relatou integração funcional em uma homologação criada pelo Sites; a implementação desse site não foi trazida para esta branch nem verificada diretamente. Ao sincronizar as correções, preservar o helper real e os bindings existentes dessa homologação.
 
@@ -48,6 +56,6 @@ Não incluir credenciais no código/GitHub. Se o starter exigir segredos, preenc
 
 ## Limites e próximos passos
 
-O agregado operacional tem limite conservador de 1 MiB; novas escritas acima desse tamanho falham sem perda de dados. Esse modelo serializa escritas e precisa ser normalizado antes de uso volumoso. Ainda faltam paginação da auditoria além das 500 ações recentes por obra, limpeza automática de uploads abandonados e eventual importação explícita com validação/IDs de origem. Não existe integração fiscal/contábil, pagamento, reservas, devoluções de estoque, transferência entre obras ou administração de funções pela interface.
+O agregado operacional tem limite conservador de 1 MiB; novas escritas acima desse tamanho falham sem perda de dados. Esse modelo serializa escritas e precisa ser normalizado antes de uso volumoso. Ainda faltam paginação da auditoria além das 500 ações recentes por obra, limpeza automática de uploads abandonados e eventual importação explícita com validação/IDs de origem. Não existe integração fiscal/contábil, pagamento, reservas, devoluções de estoque, transferência entre obras.
 
 Conectar o adapter/manifesto reais, configurar obras/serviços e funções e repetir o roteiro na homologação. Avaliar backup e escala antes de operação real. Esta tarefa autoriza desenvolvimento/teste e entrega do código; **não** substituição ou publicação do site usado pela equipe.

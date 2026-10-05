@@ -11,8 +11,8 @@ const harness = await createHarness(
 );
 const files = new Set([
   "index.html",
-  "app.js",
-  "domain.mjs",
+  "app.js", "security-ui.js",
+  "domain.mjs", "shared/permissions.mjs",
   "styles.css",
   "assets/fasolo-simon-logo.png",
   "assets/fasolo-simon-simbolo.png",

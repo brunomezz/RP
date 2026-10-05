@@ -1,6 +1,6 @@
 import { Miniflare } from "miniflare";
 import { build } from "esbuild";
-import { readFile } from "node:fs/promises";
+import { readFile, readdir } from "node:fs/promises";
 import { fileURLToPath } from "node:url";
 const root = new URL("../../", import.meta.url);
 export const personas = {
@@ -34,6 +34,7 @@ export const personas = {
     role: "almoxarifado",
     work: "BLEND",
   },
+  admin: { id: "test-admin", name: "Teste · Administrador" },
   unassigned: { id: "test-unassigned", name: "Teste · Sem função" },
 };
 export async function createHarness(persistPath) {
@@ -98,25 +99,32 @@ export async function createHarness(persistPath) {
     serviceBindings: { TEST_AUTH: auth },
   });
   const db = await mf.getD1Database("DB");
-  const schema = await readFile(
-    new URL("migrations/0001_shared.sql", root),
-    "utf8",
-  );
-  for (const sql of schema.split(";").filter((s) => s.trim()))
-    await db.prepare(sql).run();
+  await db.prepare('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)').run();
+  for (const name of (await readdir(new URL('migrations/',root))).filter(n=>n.endsWith('.sql')).sort()) {
+    if (await db.prepare('SELECT name FROM schema_migrations WHERE name=?').bind(name).first()) continue;
+    const schema = await readFile(new URL('migrations/'+name,root),'utf8');
+    await db.batch([...schema.split(';').filter(s=>s.trim()).map(sql=>db.prepare(sql)),db.prepare('INSERT INTO schema_migrations(name) VALUES(?)').bind(name)]);
+  }
+  for (const p of Object.values(personas)) await db.prepare('INSERT OR IGNORE INTO security_users(id,name) VALUES(?,?)').bind(p.id,p.name).run();
+  // Only the first fixture creation grants test administration; restart must preserve revocation.
+  if (!await db.prepare("SELECT id FROM security_migrations WHERE id='fixture-admin'").first()) {
+    await db.batch([db.prepare("INSERT INTO security_admins(user_id) VALUES('test-admin')"),db.prepare("INSERT INTO security_migrations(id) VALUES('fixture-admin')")]);
+  }
   await db
     .prepare(
       "INSERT OR IGNORE INTO works(id,name) VALUES('ELYSIUM','ELYSIUM · teste'),('BLEND','BLEND · teste')",
     )
     .run();
+  const seedMemberships = !await db.prepare("SELECT id FROM security_migrations WHERE id='fixture-memberships'").first();
   for (const p of Object.values(personas))
-    if (p.role)
+    if (seedMemberships && p.role)
       await db
         .prepare(
           "INSERT OR IGNORE INTO memberships(user_id,work_id,role) VALUES(?,?,?)",
         )
         .bind(p.id, p.work, p.role)
         .run();
+  if (seedMemberships) await db.prepare("INSERT INTO security_migrations(id) VALUES('fixture-memberships')").run();
   const row = await db.prepare("SELECT data FROM erp_state WHERE id=1").first(),
     state = JSON.parse(row.data);
   if (!state.budgetServices) {

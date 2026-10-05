@@ -1,6 +1,6 @@
-# ERP Fasolo e Simon · 0.4 em desenvolvimento
+# ERP Fasolo e Simon · 0.5 em desenvolvimento
 
-Esta branch implementa registros compartilhados, permissões no servidor, histórico e anexos para a próxima versão. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
+Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
 **Nenhum site existente foi substituído ou publicado.** O backend foi validado com D1/R2 no runtime local da Cloudflare. A conexão ao login real do ChatGPT e o manifesto do Sites ainda dependem do starter oficial: o adapter de produção falha com 503 enquanto não estiver conectado. Não apresentar esta branch como ERP já funcionando no Sites.
 
@@ -11,7 +11,7 @@ Esta branch implementa registros compartilhados, permissões no servidor, histó
 - **DB**: D1/SQLite persistente. Obras e funções por identidade em `memberships`; estado operacional em `erp_state`; operações idempotentes, auditoria e metadados de arquivos em tabelas próprias.
 - **BUCKET**: R2 privado. Upload/download passam pelo backend; o cliente não recebe acesso direto ao bucket. Até **10 MiB (10 × 1024² bytes)** por arquivo, preservando o limite anterior.
 - A interface distingue **Login necessário** (401), **Acesso ao ERP pendente** (403) e **Servidor indisponível** (falha de rede/serviço). Login reconhecido sem função não fica em “Conectando…”. **Verificar acesso** consulta novamente as permissões sem recarregar a página; nenhum acesso é concedido automaticamente.
-- **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem cadastro interno, retorna 403.
+- **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem vínculo operacional ou administração explícita, retorna 403.
 - Exemplos fictícios e a versão offline estão em `prototype/`. O banco de produção começa sem solicitações, pedidos, contratos, estoque, materiais ou usuários de teste. Nenhum dado antigo do navegador é enviado, alterado ou removido.
 
 A escolha do backend nativo segue as capacidades informadas da documentação [Sites](https://learn.chatgpt.com/docs/sites): D1, R2 e autenticação gerenciada. Supabase via HTTPS exigiria outro provisionamento e uma sessão autenticada própria; a identidade do ChatGPT não é automaticamente uma sessão do Supabase. O backend nativo evita essa dependência. O esquema exato do manifesto e a assinatura do helper não puderam ser conferidos neste ambiente: a consulta direta à documentação recebeu bloqueio do proxy. Não foi inventado um `.openai/hosting.json`.
@@ -30,7 +30,7 @@ npm start
 
 ```sh
 npm test                   # 14 testes de domínio/filtros
-npm run test:integration   # 9 testes D1/R2, autenticação de teste e concorrência
+npm run test:integration   # 19 testes D1/R2, segurança, autenticação de teste e concorrência
 npm run build:sites        # bundle Fetch, sem publicação
 npm run demo               # HTML offline separado, somente exemplos locais
 ```
@@ -41,11 +41,22 @@ Teste opcional de navegador, com o servidor de desenvolvimento ativo, Python, Pl
 python tests/browser_shared.py
 python tests/browser_access.py
 python tests/browser_audit.py
+python tests/browser_security.py
 ```
 
 `FES_CHROMIUM` indica o executável, padrão `/usr/bin/chromium`. A auditoria funcional, correções e sugestões por setor estão em [docs/AUDITORIA_FUNCIONAL.md](docs/AUDITORIA_FUNCIONAL.md). Os resultados e seu alcance estão em [docs/TESTES_COMPARTILHADOS.md](docs/TESTES_COMPARTILHADOS.md).
 
+## Administração e primeiro acesso
+
+Em **Administração → Segurança**, o administrador libera pessoas por obra, configura poderes dos quatro cargos, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
+
+Aplicar `migrations/0002_security.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
+
+Os pedidos preservam campos/anexos ainda não salvos nos outros formulários do diálogo. Login, falta de acesso, suspensão, configuração incompleta e indisponibilidade têm mensagens próprias; as chamadas têm tempo limite de 20 segundos.
+
 ## Implantar posteriormente no Sites
+
+Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_5.md](docs/PROMPT_SITES_0_5.md).
 
 Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 

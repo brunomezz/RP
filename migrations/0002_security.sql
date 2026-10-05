@@ -1,0 +1,14 @@
+CREATE TABLE IF NOT EXISTS security_meta (id INTEGER PRIMARY KEY CHECK(id=1), revision INTEGER NOT NULL DEFAULT 0, last_operation TEXT);
+INSERT OR IGNORE INTO security_meta(id) VALUES(1);
+CREATE TABLE IF NOT EXISTS security_users (id TEXT PRIMARY KEY, name TEXT NOT NULL, disabled INTEGER NOT NULL DEFAULT 0 CHECK(disabled IN(0,1)), last_seen TEXT);
+INSERT OR IGNORE INTO security_users(id,name) SELECT DISTINCT user_id,user_id FROM memberships;
+CREATE TABLE IF NOT EXISTS security_admins (user_id TEXT PRIMARY KEY REFERENCES security_users(id));
+CREATE TABLE IF NOT EXISTS role_permissions (role TEXT NOT NULL CHECK(role IN ('almoxarifado','engenharia','suprimentos','diretor')), permission TEXT NOT NULL, PRIMARY KEY(role,permission));
+CREATE TABLE IF NOT EXISTS security_audit (id TEXT PRIMARY KEY, actor_id TEXT NOT NULL, actor_name TEXT NOT NULL, action TEXT NOT NULL, target TEXT NOT NULL, reason TEXT NOT NULL, before_json TEXT NOT NULL, after_json TEXT NOT NULL, at TEXT NOT NULL);
+CREATE TABLE IF NOT EXISTS security_operations (actor_id TEXT NOT NULL, key TEXT NOT NULL, fingerprint TEXT NOT NULL, PRIMARY KEY(actor_id,key));
+CREATE TABLE IF NOT EXISTS security_migrations (id TEXT PRIMARY KEY);
+INSERT OR IGNORE INTO role_permissions(role,permission) SELECT 'almoxarifado',value FROM json_each('["create","edit","receive","withdraw"]') WHERE NOT EXISTS(SELECT 1 FROM security_migrations WHERE id='default-permissions');
+INSERT OR IGNORE INTO role_permissions(role,permission) SELECT 'engenharia',value FROM json_each('["engineering","rejectEngineering","measure"]') WHERE NOT EXISTS(SELECT 1 FROM security_migrations WHERE id='default-permissions');
+INSERT OR IGNORE INTO role_permissions(role,permission) SELECT 'suprimentos',value FROM json_each('["quote","suggest","send","arrival","material","supplier","quoteFiles","orderFiles"]') WHERE NOT EXISTS(SELECT 1 FROM security_migrations WHERE id='default-permissions');
+INSERT OR IGNORE INTO role_permissions(role,permission) SELECT 'diretor',value FROM json_each('["director","rejectDirector"]') WHERE NOT EXISTS(SELECT 1 FROM security_migrations WHERE id='default-permissions');
+INSERT OR IGNORE INTO security_migrations(id) VALUES('default-permissions');

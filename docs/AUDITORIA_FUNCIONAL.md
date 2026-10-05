@@ -1,5 +1,11 @@
 # Auditoria funcional · ERP compartilhado 0.4
 
+## Atualização da versão 0.5
+
+A continuidade desta auditoria entregou a aba Segurança, administração de vínculos/poderes, suspensão/reativação, cadastro de obras, histórico administrativo, proteção do último administrador e revogação validada no commit operacional. Também foram acrescentados estados de configuração pendente/suspensão, tempo limite de conexão e preservação dos rascunhos dos outros formulários do pedido. Ver [SEGURANCA.md](SEGURANCA.md) e [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md).
+
+Os resultados abaixo descrevem a rodada original da 0.4. Os itens de gestão de acesso e preservação de rascunhos citados como sugestões foram implementados na 0.5. Reservas, divergências estruturadas, orçamento, negociação, alçadas e escala continuam pendentes; exigem evolução dos respectivos fluxos.
+
 ## Alcance e resultado
 
 Auditoria em ambiente separado, na branch `codex/shared-erp`, com dados fictícios, D1/R2 locais no Miniflare e Chromium. Foram percorridas as **14 telas** e os fluxos principais de almoxarifado, engenharia, suprimentos e diretor. **14 testes de domínio/filtros, 9 de integração e 3 roteiros de navegador passaram.** Build Fetch/Workers gerado sem publicar.
@@ -44,7 +50,7 @@ Telas percorridas: painel, solicitações, cotações, aprovações, pedidos, re
 | Diretor de engenharia | Resumo da decisão com custo, impacto no orçamento, alternativas, exceções e anexos; definir eventuais alçadas por valor com a empresa. | Indicadores de decisões pendentes e comparação histórica de contratação. |
 | Administração e relatórios | Gestão de funções/obras, paginação do histórico e limpeza de uploads abandonados com política definida; distinguir contratação de conclusão da execução. | Quantidades no padrão brasileiro, códigos curtos para consulta e paginação/busca das listas. |
 
-Foi observado que salvar uma previsão reconstrói o diálogo do pedido. Uma seleção de arquivo feita durante essa gravação pode se perder antes de ser enviada. O teste aguarda a conclusão da gravação antes de selecionar o arquivo; preservar os rascunhos é uma melhoria pendente, não uma correção entregue.
+Foi observado que salvar uma previsão reconstrói o diálogo do pedido. Uma seleção de arquivo feita durante essa gravação pode se perder antes de ser enviada. O teste aguarda a conclusão da gravação antes de selecionar o arquivo; a versão 0.5 passou a preservar os rascunhos dos outros formulários e bloqueia temporariamente a edição durante a gravação, com regressão no navegador.
 
 ## Prioridades técnicas antes de ampliar o uso
 

@@ -1,3 +1,5 @@
+import { loadActor, registerIdentity, allow, securitySnapshot, changeSecurity } from './security.mjs';
+import { capabilities, can } from './permissions.mjs';
 import {
   approveEngineering,
   sendDirector,
@@ -28,23 +30,6 @@ const labels = {
 };
 const MAX_FILE = 10 * 1024 * 1024,
   MAX_JSON = 256 * 1024;
-const permission = {
-  create: "almoxarifado",
-  edit: "almoxarifado",
-  engineering: "engenharia",
-  quote: "suprimentos",
-  suggest: "suprimentos",
-  send: "suprimentos",
-  director: "diretor",
-  arrival: "suprimentos",
-  receive: "almoxarifado",
-  withdraw: "almoxarifado",
-  measure: "engenharia",
-  material: "suprimentos",
-  supplier: "suprimentos",
-  quoteFiles: "suprimentos",
-  orderFiles: "suprimentos",
-};
 function fail(status, message) {
   throw Object.assign(new Error(message), { status });
 }
@@ -128,30 +113,6 @@ async function readLimited(request, max) {
   }
   return bytes;
 }
-async function identity(db, user) {
-  if (!user?.id) fail(401, "Entre com sua identidade no ChatGPT.");
-  const id = text(user.id, "identidade", 300);
-  const rows = (
-    await db
-      .prepare(
-        "SELECT m.work_id,m.role,w.name FROM memberships m JOIN works w ON w.id=m.work_id WHERE m.user_id=? AND m.active=1",
-      )
-      .bind(id)
-      .all()
-  ).results;
-  if (!rows.length)
-    fail(
-      403,
-      "Identidade autenticada sem acesso interno ao ERP. Solicite o cadastro de função e obra.",
-    );
-  return { id, name: optional(user.name, 300) || id, access: rows };
-}
-function allow(actor, work, role) {
-  if (
-    !actor.access.some((a) => a.work_id === work && (!role || a.role === role))
-  )
-    fail(403, "Você não tem esta permissão nesta obra.");
-}
 function readState(row) {
   return JSON.parse(row.data);
 }
@@ -159,6 +120,8 @@ function projection(state, actor) {
   const visible = new Set(actor.access.map((a) => a.work_id));
   return {
     ...state,
+    catalog: actor.access.length ? state.catalog : [],
+    suppliers: actor.access.length ? state.suppliers : [],
     requests: state.requests.filter((r) => visible.has(r.work)),
     orders: state.orders.filter((r) => visible.has(r.work)),
     contracts: state.contracts.filter((r) => visible.has(r.work)),
@@ -264,12 +227,14 @@ function quantities(v, rows) {
 }
 async function apply(db, env, state, actor, p) {
   const action = p.action;
+  if (!Object.hasOwn(capabilities, action) && action !== "reject") fail(400, "Ação inválida.");
+  let requiredPermission = action;
   let work = p.work,
     record,
     recordId,
     files = [];
   if (["create", "withdraw", "material", "supplier"].includes(action)) {
-    allow(actor, work, permission[action]);
+    allow(actor, work, action);
   } else {
     const kind = ["arrival", "receive", "orderFiles"].includes(action)
       ? "order"
@@ -278,16 +243,8 @@ async function apply(db, env, state, actor, p) {
         : "request";
     record = find(state, kind, p.id);
     work = record.work;
-    allow(
-      actor,
-      work,
-      action === "reject"
-        ? record.status === "director"
-          ? "diretor"
-          : "engenharia"
-        : permission[action],
-    );
-    if (!permission[action] && action !== "reject") fail(400, "Ação inválida.");
+    requiredPermission = action === "reject" ? (record.status === "director" ? "rejectDirector" : "rejectEngineering") : action;
+    allow(actor, work, requiredPermission);
     expect(record, p);
   }
   const before = new Map(state.requests.map((r) => [r.id, r.history.length]));
@@ -600,12 +557,13 @@ async function apply(db, env, state, actor, p) {
     o.createdAt = at;
     o.history.push({ ...entry });
   }
-  return { result, work, recordId, files, at, reason };
+  return { result, work, recordId, files, at, reason, requiredPermission };
 }
 async function command(db, env, actor, p, key) {
   text(key, "identificador da ação", 100);
   const fingerprint = JSON.stringify(p);
   for (let retry = 0; retry < 8; retry++) {
+    actor = await loadActor(db, actor);
     const prior = await db
       .prepare("SELECT * FROM operations WHERE actor_id=? AND key=?")
       .bind(actor.id, key)
@@ -614,7 +572,7 @@ async function command(db, env, actor, p, key) {
       if (prior.fingerprint !== fingerprint)
         fail(409, "Identificador reutilizado para outra ação.");
       const saved = JSON.parse(prior.result);
-      allow(actor, saved.work, permission[p.action] || undefined);
+      allow(actor, saved.work, saved.permission || (p.action === "reject" ? "rejectDirector" : p.action));
       return saved.result;
     }
     const row = await db.prepare("SELECT * FROM erp_state WHERE id=1").first(),
@@ -628,7 +586,7 @@ async function command(db, env, actor, p, key) {
       if (latest.fingerprint !== fingerprint)
         fail(409, "Identificador reutilizado para outra ação.");
       const saved = JSON.parse(latest.result);
-      allow(actor, saved.work, permission[p.action] || undefined);
+      allow(actor, saved.work, saved.permission || (p.action === "reject" ? "rejectDirector" : p.action));
       return saved.result;
     }
     const changed = await apply(db, env, state, actor, p);
@@ -640,13 +598,13 @@ async function command(db, env, actor, p, key) {
         "Capacidade desta versão atingida. Amplie o modelo antes de novos registros.",
       );
     const operation = crypto.randomUUID(),
-      saved = JSON.stringify({ work: changed.work, result: changed.result });
+      saved = JSON.stringify({ work: changed.work, result: changed.result, permission: changed.requiredPermission });
     const batch = [
       db
         .prepare(
-          "UPDATE erp_state SET data=?,revision=revision+1,last_operation=? WHERE id=1 AND revision=?",
+          "UPDATE erp_state SET data=?,revision=revision+1,last_operation=? WHERE id=1 AND revision=? AND EXISTS(SELECT 1 FROM security_meta WHERE id=1 AND revision=?)",
         )
-        .bind(data, operation, row.revision),
+        .bind(data, operation, row.revision, actor.securityRevision),
       db
         .prepare(
           "INSERT INTO operations(actor_id,key,fingerprint,result) SELECT ?,?,?,? FROM erp_state WHERE id=1 AND last_operation=?",
@@ -699,16 +657,13 @@ export function createERPHandler(requireUser) {
       }
       const user = await requireUser(request, env);
       if (path === "/api/identity" && request.method === "GET") {
-        if (!user?.id) fail(401, "Entre com sua identidade no ChatGPT.");
-        return response({ id: user.id, name: user.name });
+        return response(await registerIdentity(env.DB, user));
       }
-      const actor = await identity(env.DB, user);
-      if (path === "/api/session" && request.method === "GET")
-        return response({
-          id: actor.id,
-          name: actor.name,
-          access: actor.access,
-        });
+      const actor = await loadActor(env.DB, user);
+      if (path === "/api/session" && request.method === "GET") return response(actor);
+      if (path === "/api/security" && request.method === "GET") return response(await securitySnapshot(env.DB, actor));
+      if (path === "/api/security" && request.method === "POST")
+        return response(await changeSecurity(env.DB, actor, await json(request), request.headers.get("Idempotency-Key")));
       if (path === "/api/state" && request.method === "GET") {
         const row = await env.DB.prepare(
           "SELECT * FROM erp_state WHERE id=1",
@@ -717,6 +672,7 @@ export function createERPHandler(requireUser) {
         return response({
           ...state,
           revision: row.revision,
+          session: actor,
           works: [
             ...new Map(
               actor.access.map((a) => [
@@ -759,14 +715,11 @@ export function createERPHandler(requireUser) {
           state = readState(row);
         if (!["request", "order"].includes(p.targetKind))
           fail(400, "Destino de anexo inválido.");
-        const record = find(state, p.targetKind, p.targetId),
-          role =
-            p.targetKind === "request"
-              ? "suprimentos"
-              : p.purpose === "receipt"
-                ? "almoxarifado"
-                : "suprimentos";
-        allow(actor, record.work, role);
+        const record = find(state, p.targetKind, p.targetId);
+        const requiredPermission = p.targetKind === "request"
+          ? (p.purpose === "quoteFiles" ? "quoteFiles" : "quote")
+          : p.purpose === "receipt" ? "receive" : "orderFiles";
+        allow(actor, record.work, requiredPermission);
         if (p.targetKind === "request" && record.status !== "quoting")
           fail(409, "Proposta fora de etapa.");
         const size = number(p.size, "tamanho", true);
@@ -803,17 +756,8 @@ export function createERPHandler(requireUser) {
         if (request.method === "PUT") {
           if (f.owner_id !== actor.id || f.finalized)
             fail(403, "Envio não autorizado.");
-          const role = f.target_kind === "request" ? "suprimentos" : null;
-          allow(actor, f.work_id, role);
-          if (
-            !role &&
-            !actor.access.some(
-              (a) =>
-                a.work_id === f.work_id &&
-                ["suprimentos", "almoxarifado"].includes(a.role),
-            )
-          )
-            fail(403, "Envio não autorizado.");
+          const uploadPermissions = f.target_kind === "request" ? ["quote", "quoteFiles"] : ["receive", "orderFiles"];
+          if (!uploadPermissions.some(permission => can(actor, permission, f.work_id))) fail(403, "Envio não autorizado.");
           const data = await readLimited(request, MAX_FILE);
           if (data.length !== f.size) fail(400, "Tamanho do anexo divergente.");
           const stored = await env.BUCKET.put(f.id, data, {
@@ -853,16 +797,9 @@ export function createERPHandler(requireUser) {
       }
       return response({ error: "Rota não encontrada." }, 404);
     } catch (e) {
-      return response(
-        {
-          error: e.status
-            ? e.message
-            : e.message?.startsWith("D1_")
-              ? "Falha de persistência."
-              : e.message || "Erro interno.",
-        },
-        e.status || 400,
-      );
+      const setup = /no such (table|column)|Bindings DB/.test(e.message || "");
+      return response({ error: setup ? "Conclua as migrações e a configuração deste ambiente." : e.status ? e.message : e.message?.startsWith("D1_") ? "Falha de persistência." : e.message || "Erro interno.",
+        code: setup ? "ERP_SETUP_REQUIRED" : e.code }, setup ? 503 : e.status || 400);
     }
   };
 }
