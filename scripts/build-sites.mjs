@@ -1,7 +1,7 @@
 import { build } from "esbuild";
 import { mkdir, copyFile, cp } from "node:fs/promises";
 await mkdir("dist/sites/public/shared", { recursive: true });
-for (const file of ["index.html", "app.js", "security-ui.js", "domain.mjs", "shared/permissions.mjs", "styles.css"])
+for (const file of ["index.html", "app.js", "security-ui.js", "communication-ui.js", "domain.mjs", "shared/permissions.mjs", "styles.css"])
   await copyFile(file, "dist/sites/public/" + file);
 await cp("assets", "dist/sites/public/assets", { recursive: true });
 await build({

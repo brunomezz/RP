@@ -1,3 +1,6 @@
+import { reportRoutes } from './report-email.mjs';
+import { documentRoutes } from './documents.mjs';
+import { notificationRoutes, operationNotice } from './notifications.mjs';
 import { loadActor, registerIdentity, allow, securitySnapshot, changeSecurity } from './security.mjs';
 import { capabilities, can } from './permissions.mjs';
 import {
@@ -227,7 +230,7 @@ function quantities(v, rows) {
 }
 async function apply(db, env, state, actor, p) {
   const action = p.action;
-  if (!Object.hasOwn(capabilities, action) && action !== "reject") fail(400, "Ação inválida.");
+  if (!Object.hasOwn(labels, action)) fail(400, "Ação inválida.");
   let requiredPermission = action;
   let work = p.work,
     record,
@@ -247,6 +250,15 @@ async function apply(db, env, state, actor, p) {
     allow(actor, work, requiredPermission);
     expect(record, p);
   }
+  let sourceDocument = null;
+  if (p.sourceDocumentId) {
+    if (!["create","quote"].includes(action)) fail(400,"Importação indisponível para esta ação.");
+    allow(actor,work,"documentsImport");
+    sourceDocument = await db.prepare("SELECT * FROM documents WHERE id=?").bind(text(p.sourceDocumentId,"documento",100)).first();
+    if (!sourceDocument || sourceDocument.work_id!==work) fail(403,"Documento não pertence à obra.");
+    if (sourceDocument.linked_record_id && !(action==="quote" && sourceDocument.linked_kind==="request" && sourceDocument.linked_record_id===record.id)) fail(409,"Documento já vinculado a outro registro.");
+    if (await db.prepare("SELECT document_id FROM document_imports WHERE document_id=?").bind(sourceDocument.id).first()) fail(409,"Este PDF já originou um cadastro. Consulte o registro existente.");
+  }
   const before = new Map(state.requests.map((r) => [r.id, r.history.length]));
   const movements = state.movements.length,
     orders = state.orders.length,
@@ -260,6 +272,7 @@ async function apply(db, env, state, actor, p) {
         id: "SOL-" + crypto.randomUUID(),
         work,
         requester: actor.name,
+        ...(sourceDocument?{sourceDocumentId:sourceDocument.id}:{}),
         purpose: text(p.purpose, "finalidade"),
         items: items(state, work, p.items),
         status: "engineering",
@@ -336,6 +349,7 @@ async function apply(db, env, state, actor, p) {
       record.quotes.push({
         id: crypto.randomUUID(),
         supplier,
+        ...(sourceDocument?{sourceDocumentId:sourceDocument.id}:{}),
         prices,
         days,
         freight: number(p.freight, "frete"),
@@ -524,7 +538,7 @@ async function apply(db, env, state, actor, p) {
       at,
       who: actor.name,
       actorId: actor.id,
-      text: (labels[action] || action) + (reason ? ": " + reason : ""),
+      text: (labels[action] || action) + (reason ? ": " + reason : "") + (sourceDocument ? " · Origem PDF: "+sourceDocument.name : ""),
     };
   for (const r of state.requests) {
     const count = before.get(r.id) ?? 0;
@@ -557,7 +571,7 @@ async function apply(db, env, state, actor, p) {
     o.createdAt = at;
     o.history.push({ ...entry });
   }
-  return { result, work, recordId, files, at, reason, requiredPermission };
+  return { result, work, recordId, files, at, reason, requiredPermission, sourceDocument };
 }
 async function command(db, env, actor, p, key) {
   text(key, "identificador da ação", 100);
@@ -602,9 +616,9 @@ async function command(db, env, actor, p, key) {
     const batch = [
       db
         .prepare(
-          "UPDATE erp_state SET data=?,revision=revision+1,last_operation=? WHERE id=1 AND revision=? AND EXISTS(SELECT 1 FROM security_meta WHERE id=1 AND revision=?)",
+          "UPDATE erp_state SET data=?,revision=revision+1,last_operation=? WHERE id=1 AND revision=? AND EXISTS(SELECT 1 FROM security_meta WHERE id=1 AND revision=?) AND (? IS NULL OR (NOT EXISTS(SELECT 1 FROM document_imports WHERE document_id=?) AND EXISTS(SELECT 1 FROM documents WHERE id=? AND work_id=? AND (linked_record_id IS NULL OR (linked_kind='request' AND linked_record_id=?)))))",
         )
-        .bind(data, operation, row.revision, actor.securityRevision),
+        .bind(data, operation, row.revision, actor.securityRevision,changed.sourceDocument?.id||null,changed.sourceDocument?.id||null,changed.sourceDocument?.id||null,changed.work,p.action==="quote"?p.id:""),
       db
         .prepare(
           "INSERT INTO operations(actor_id,key,fingerprint,result) SELECT ?,?,?,? FROM erp_state WHERE id=1 AND last_operation=?",
@@ -635,12 +649,17 @@ async function command(db, env, actor, p, key) {
           )
           .bind(f.id, operation),
       );
+    if (changed.sourceDocument) {
+      batch.push(db.prepare("INSERT INTO document_imports(document_id,action,record_id,actor_id,created_at) SELECT ?,?,?,?,? FROM erp_state WHERE id=1 AND last_operation=?").bind(changed.sourceDocument.id,p.action,changed.recordId,actor.id,changed.at,operation));
+      batch.push(db.prepare("UPDATE documents SET linked_kind='request',linked_record_id=? WHERE id=? AND EXISTS(SELECT 1 FROM erp_state WHERE id=1 AND last_operation=?)").bind(changed.recordId,changed.sourceDocument.id,operation));
+    }
+    batch.push(...operationNotice(db,actor,changed,operation,p.action,labels[p.action]));
     const result = await db.batch(batch);
     if (result[0].meta.changes === 1) return changed.result;
   }
   fail(409, "Outras ações estão em andamento. Atualize e tente novamente.");
 }
-export function createERPHandler(requireUser) {
+export function createERPHandler(requireUser, options = {}) {
   return async function handle(request, env) {
     try {
       const path = new URL(request.url).pathname;
@@ -660,6 +679,8 @@ export function createERPHandler(requireUser) {
         return response(await registerIdentity(env.DB, user));
       }
       const actor = await loadActor(env.DB, user);
+      const helpers={json,readLimited,response,mailFetch:options.mailFetch?(r)=>options.mailFetch(r,env):fetch};
+      for(const route of [notificationRoutes,documentRoutes,reportRoutes]){const result=await route(request,env,actor,helpers);if(result)return result;}
       if (path === "/api/session" && request.method === "GET") return response(actor);
       if (path === "/api/security" && request.method === "GET") return response(await securitySnapshot(env.DB, actor));
       if (path === "/api/security" && request.method === "POST")

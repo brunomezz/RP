@@ -1,4 +1,4 @@
-# Implantação futura no Sites · homologação 0.5
+# Implantação futura no Sites · homologação 0.6
 
 ## Situação verificável
 
@@ -17,7 +17,8 @@ A documentação fornecida informa declarações D1/R2 em `.openai/hosting.json`
 | Primeiro administrador | Identidade estável explicitamente escolhida | Operador do D1/Sites; procedimento em SEGURANCA.md |
 | Obras, cargos e poderes | Vínculos por pessoa e ações de cada cargo | Aba Segurança, API autorizada pelo servidor |
 | Orçamento | Serviços e valores reais por obra | Procedimento administrativo validado no D1 |
-| Segredos adicionais | Nenhum exigido diretamente por esta API | Se o starter exigir algum, preencher somente nas variáveis/segredos do Sites |
+| `RESEND_API_KEY` | Chave privada do serviço Resend, opcional para habilitar envio | Segredos server-side do Sites; nunca navegador/chat/GitHub |
+| `REPORT_EMAIL_FROM` | Remetente de domínio verificado no Resend | Variáveis server-side do Sites |
 
 `DB`, `BUCKET` e `ASSETS` são objetos/bindings, não strings com credenciais. Não enviar chaves R2/D1 para o navegador. O acesso ao site é separado de `memberships`: um visitante autenticado pode continuar sem permissão no ERP.
 
@@ -26,7 +27,7 @@ A documentação fornecida informa declarações D1/R2 em `.openai/hosting.json`
 1. Selecionar a branch `codex/shared-erp` e criar **novo site de homologação**, com URL, D1 e R2 separados. Não publicar sobre o site atual e não apontar para seus recursos.
 2. Obter o starter oficial. Declarar `DB` e `BUCKET` segundo seu manifesto real e configurar os assets. O backend pode ser integrado às rotas do starter pela função `createERPHandler(requireUser)`, sem iniciar `server.mjs` nem `npm start` no Sites.
 3. Substituir somente `hosting/sites-auth.mjs` por uma chamada ao **helper oficial de autenticação no servidor**. Adaptar seu resultado a `{id, name}`, usando a identidade estável do provedor. Confirmar sua assinatura e contexto antes de implementar o import. Não aceitar identidade em cabeçalho customizado, formulário, query, cookie não validado, localStorage ou JWT decodificado sem verificação. Não criar fallback para identidade de teste.
-4. Executar `migrations/0001_shared.sql` e `migrations/0002_security.sql`, nessa ordem, no D1 de homologação com o mecanismo de migrações do starter. Em ambiente existente, aplicar apenas as migrações pendentes. A migração cria tabelas e um estado vazio com `INSERT OR IGNORE`; executá-la novamente não reseta o estado. Nunca apagar/recriar o banco durante uma atualização do site.
+4. Executar `migrations/0001_shared.sql` e `migrations/0002_security.sql`, seguidas de `migrations/0003_communication.sql`, nessa ordem, no D1 de homologação com o mecanismo de migrações do starter. Em ambiente existente, aplicar apenas as migrações pendentes. A migração cria tabelas e um estado vazio com `INSERT OR IGNORE`; executá-la novamente não reseta o estado. Nunca apagar/recriar o banco durante uma atualização do site.
 5. Entrar com cada pessoa em homologação e consultar `/api/identity` (retorna somente a identidade da própria sessão). O endpoint funciona para pessoas autenticadas antes do cadastro de função, sem abrir acesso aos registros; o nome/identificador passa a aparecer para o administrador.
 6. Configurar explicitamente o primeiro administrador pelo procedimento de [SEGURANCA.md](SEGURANCA.md), usando `scripts/bootstrap-admin.mjs`. A pessoa clica Verificar acesso e passa a administrar usuários/cargos/obras pela aba Segurança. Para configurar o orçamento real ou preparar a configuração inicial em lote, copiar `hosting/work-config.example.json` para um arquivo local ignorado, por exemplo `work-config.local.json`, e preencher obras, serviços reais e os IDs estáveis de identidade. Gerar SQL com `node scripts/provision-sql.mjs work-config.local.json > /tmp/fes-config.sql`, revisar e executar **somente no D1 de homologação**, com escritas suspensas durante a configuração. O script valida nomes, IDs e funções; não inclui pessoas/exemplos automaticamente. Não conecta ao banco. Adicionar materiais pela tela de Cadastros, como suprimentos.
 7. Executar `npm ci` e `npm run check`. Confirmar que o build do starter usa o backend e os assets apropriados. `npm run build:sites` gera o bundle em `dist/sites/worker.mjs` e a interface em `dist/sites/public`; não publica.
@@ -67,3 +68,9 @@ Preservar os mesmos recursos D1/R2 entre versões; versionar migrações sem apa
 Uploads são reservados no D1 e enviados ao R2, ainda privados. A finalização ocorre na mesma transação do registro. Uploads cancelados podem ficar órfãos e indisponíveis para download. Para limpeza administrativa futura, selecionar arquivos `finalized=0` suficientemente antigos, excluir primeiro o objeto R2 correspondente e depois seus metadados D1; não excluir uploads ativos. Não há rotina automática nesta versão. Não remover `operations` sem uma política que preserve a prevenção de repetição.
 
 Nenhuma migração/importação de localStorage ou IndexedDB foi implementada. A equipe mantém o site anterior e seus dados. Se houver importação futura, exigir escolha explícita, pré-validação das obras/serviços, IDs de origem, relatório de conflitos e tratamento separado dos arquivos.
+
+## Comunicação e PDFs na homologação
+
+Preservar o helper real já conectado ao Sites. Aplicar somente migrações pendentes. Cadastrar e-mail dos colaboradores pela aba Segurança e conferir os novos poderes. Para envio real, configurar conta/domínio Resend e as duas variáveis apenas no ambiente seguro; permitir HTTPS para `api.resend.com`. Não ativar `FES_TEST_MAIL` no Sites: é um fixture exclusivo do servidor local.
+
+Verificar com duas contas reais: relatório de cada etapa, PDF baixável, envio a destinatário autorizado, notificação individual/lida, importação de PDF textual, revisão e confirmação única, download por outra sessão, rejeição de outra obra/sem poder. Usar um destinatário de teste consentido para envio real e conferir a caixa de entrada; aceite da API não comprova entrega. Validar limites de CPU/memória/tamanho do bundle e PDFs no runtime efetivo do Sites, especialmente arquivos complexos. Não houve publicação nem verificação remota nesta tarefa. Ver [RELATORIOS_DOCUMENTOS.md](RELATORIOS_DOCUMENTOS.md).

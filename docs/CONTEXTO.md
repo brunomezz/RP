@@ -18,9 +18,9 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.5, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.6, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
-A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Não há importação nesta versão.
+A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Há importação explícita de PDFs, com sugestões revisadas antes de criar solicitação ou proposta. Não há importação do banco antigo do navegador.
 
 ## Arquitetura escolhida
 
@@ -48,7 +48,7 @@ Escopo, evidências e recomendações por setor: [AUDITORIA_FUNCIONAL.md](AUDITO
 
 ## Verificação e configuração pendente
 
-14 testes de domínio e 19 testes de integração passaram. Quatro roteiros Chromium passaram: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
+14 testes de domínio e 29 testes de integração passaram. Cinco roteiros Chromium passaram, incluindo comunicação/PDFs, além de: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
 
 A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto. O usuário relatou integração funcional em uma homologação criada pelo Sites; a implementação desse site não foi trazida para esta branch nem verificada diretamente. Ao sincronizar as correções, preservar o helper real e os bindings existentes dessa homologação.
 
@@ -56,6 +56,16 @@ Não incluir credenciais no código/GitHub. Se o starter exigir segredos, preenc
 
 ## Limites e próximos passos
 
-O agregado operacional tem limite conservador de 1 MiB; novas escritas acima desse tamanho falham sem perda de dados. Esse modelo serializa escritas e precisa ser normalizado antes de uso volumoso. Ainda faltam paginação da auditoria além das 500 ações recentes por obra, limpeza automática de uploads abandonados e eventual importação explícita com validação/IDs de origem. Não existe integração fiscal/contábil, pagamento, reservas, devoluções de estoque, transferência entre obras.
+O agregado operacional tem limite conservador de 1 MiB; novas escritas acima desse tamanho falham sem perda de dados. Esse modelo serializa escritas e precisa ser normalizado antes de uso volumoso. Ainda faltam paginação da auditoria além das 500 ações recentes por obra, limpeza automática de uploads abandonados e migração explícita dos dados antigos com validação/IDs de origem. Não existe integração fiscal/contábil, pagamento, reservas, devoluções de estoque, transferência entre obras.
 
 Conectar o adapter/manifesto reais, configurar obras/serviços e funções e repetir o roteiro na homologação. Avaliar backup e escala antes de operação real. Esta tarefa autoriza desenvolvimento/teste e entrega do código; **não** substituição ou publicação do site usado pela equipe.
+
+## Relatórios, notificações e documentos · 0.6
+
+A migração `0003_communication.sql` adiciona contatos, notificações individuais, documentos/extratos, rastreamento da confirmação de PDF e histórico de envio. Os poderes `reportsExport`, `reportsEmail` e `documentsImport` iniciam nos quatro cargos; podem ser retirados na aba Segurança, com validação na API. A migração não restaura poderes retirados quando reaplicada. O administrador cadastra e-mails; não se presume que o login forneça um endereço para envio.
+
+Onze relatórios são gerados dos registros reais da obra autorizada. PDF e e-mail conferem a revisão da prévia; mudanças intermediárias pedem nova geração. Estoque permite posição na data final; orçamento é posição atual; filas de engenharia/diretor representam pendências atuais, não uma reconstrução histórica. Notificações são gravadas na mesma transação das ações e exibidas apenas ao destinatário autorizado; o contador é atualizado a cada 45 segundos com a tela ativa.
+
+PDFs são armazenados no R2 privado, deduplicados por conteúdo/obra, com texto e autoria no D1. Extrair não cadastra nem movimenta estoque. O usuário revisa campos obrigatórios nos formulários existentes; confirmação e vínculo ao documento são atômicos e impedem reutilização para duplicar cadastros. PDFs digitalizados são guardados, mas exigem OCR ainda não configurado.
+
+E-mails usam HTTPS para Resend, com PDF do servidor, destinatário cadastrado e autorizado, histórico, chave idempotente e repetição controlada. `RESEND_API_KEY` e `REPORT_EMAIL_FROM` são configurações seguras do Sites; não há envio real verificado nesta tarefa. Sem elas, PDF/notificações/importação continuam disponíveis. Detalhes: [RELATORIOS_DOCUMENTOS.md](RELATORIOS_DOCUMENTOS.md).

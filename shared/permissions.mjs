@@ -1,6 +1,7 @@
 // Stable action identifiers shared by the API and the administration interface.
 export const roles = { almoxarifado: 'Almoxarifado', engenharia: 'Engenharia', suprimentos: 'Suprimentos', diretor: 'Diretor de engenharia' };
 export const capabilities = {
+  reportsExport: 'Gerar e exportar relatórios', reportsEmail: 'Enviar relatórios por e-mail', documentsImport: 'Importar e revisar PDFs',
   create: 'Criar solicitações', edit: 'Revisar solicitações antes da emissão',
   engineering: 'Validar necessidade e orçamento', rejectEngineering: 'Devolver na conferência técnica',
   quote: 'Cadastrar propostas', suggest: 'Sugerir fornecedores', send: 'Enviar contratação ao diretor',

@@ -7,7 +7,7 @@ const api = createERPHandler(async (request, env) => {
   if (!r.ok)
     throw Object.assign(Error("Sessão de teste ausente."), { status: 401 });
   return r.json();
-});
+}, {mailFetch:(request,env)=>env.TEST_MAIL.fetch(request)});
 export default {
   fetch(request, env) {
     if (new URL(request.url).pathname.startsWith("/dev/"))

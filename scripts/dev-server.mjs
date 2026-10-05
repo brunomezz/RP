@@ -8,10 +8,11 @@ import { createHarness, personas } from "../tests/integration/harness.mjs";
 const root = fileURLToPath(new URL("../", import.meta.url));
 const harness = await createHarness(
   resolve(process.env.FES_DEV_DATA_DIR || root + "/.dev-data"),
+  {mail:process.env.FES_TEST_MAIL==='1'},
 );
 const files = new Set([
   "index.html",
-  "app.js", "security-ui.js",
+  "app.js", "security-ui.js", "communication-ui.js",
   "domain.mjs", "shared/permissions.mjs",
   "styles.css",
   "assets/fasolo-simon-logo.png",
@@ -24,7 +25,7 @@ const types = {
   ".css": "text/css; charset=utf-8",
   ".png": "image/png",
 };
-const login = `<div class="demo" id="dev-access"><strong>DESENVOLVIMENTO LOCAL — identidades fictícias</strong><select id="dev-persona">${Object.entries(
+const login = `<div class="demo" id="dev-access"><strong>DESENVOLVIMENTO LOCAL — identidades fictícias${process.env.FES_TEST_MAIL==='1'?' · e-mails simulados, sem entrega':''}</strong><select id="dev-persona">${Object.entries(
   personas,
 )
   .map(([key, p]) => `<option value="${key}">${p.name}</option>`)

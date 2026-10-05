@@ -1,3 +1,4 @@
+import { securityNotice } from './notifications.mjs';
 import { roles, capabilities, can } from './permissions.mjs';
 export function securityError(status, message, code) {
   throw Object.assign(new Error(message), { status, code });
@@ -44,7 +45,7 @@ export async function securitySnapshot(db, actor) {
   requireAdmin(actor);
   const results = await db.batch([
     db.prepare('SELECT revision FROM security_meta WHERE id=1'),
-    db.prepare('SELECT u.*,EXISTS(SELECT 1 FROM security_admins a WHERE a.user_id=u.id) AS admin FROM security_users u ORDER BY u.name,u.id'),
+    db.prepare("SELECT u.*,COALESCE(c.email,'') AS email,EXISTS(SELECT 1 FROM security_admins a WHERE a.user_id=u.id) AS admin FROM security_users u LEFT JOIN user_contacts c ON c.user_id=u.id ORDER BY u.name,u.id"),
     db.prepare('SELECT user_id,work_id,role FROM memberships WHERE active=1 ORDER BY user_id,work_id,role'),
     db.prepare('SELECT * FROM role_permissions ORDER BY role,permission'),
     db.prepare('SELECT id,name FROM works ORDER BY name'),
@@ -76,6 +77,8 @@ export async function changeSecurity(db, actor, input, key) {
     if (!current) securityError(400, 'Esta pessoa precisa entrar no aplicativo uma vez antes da liberação.');
     if (typeof input.disabled !== 'boolean' || typeof input.admin !== 'boolean' || !Array.isArray(input.memberships) || input.memberships.length > 200)
       securityError(400, 'Configuração de acesso inválida.');
+    const email = input.email===undefined ? (current.email||'') : typeof input.email==='string' ? input.email.trim().toLowerCase() : null;
+    if(email===null || email.length>254 || (email&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email))) securityError(400,'Confira o e-mail do colaborador.');
     const links = input.memberships.map(m => {
       if (!m || !Object.hasOwn(roles,m.role) || !snapshot.works.some(w => w.id === m.workId)) securityError(400, 'Cargo ou obra inválidos.');
       return { workId: m.workId, role: m.role };
@@ -83,9 +86,10 @@ export async function changeSecurity(db, actor, input, key) {
     if (new Set(links.map(m => JSON.stringify(m))).size !== links.length) securityError(400, 'Vínculo repetido.');
     if (current.admin && (input.disabled || !input.admin) && !snapshot.users.some(u => u.id !== target && u.admin && !u.disabled))
       securityError(409, 'Mantenha pelo menos um administrador ativo. Libere outro administrador antes de remover este acesso.');
-    before = { admin: !!current.admin, disabled: !!current.disabled, memberships: snapshot.memberships.filter(m => m.user_id === target).map(m => ({workId:m.work_id,role:m.role})) };
-    after = { admin: input.admin, disabled: input.disabled, memberships: links };
+    before = { email: current.email||'', admin: !!current.admin, disabled: !!current.disabled, memberships: snapshot.memberships.filter(m => m.user_id === target).map(m => ({workId:m.work_id,role:m.role})) };
+    after = { email, admin: input.admin, disabled: input.disabled, memberships: links };
     statements.push(db.prepare(`UPDATE security_users SET disabled=? WHERE id=? AND ${guard}`).bind(Number(input.disabled),target,operation));
+    statements.push(db.prepare(`INSERT INTO user_contacts(user_id,email) SELECT ?,? WHERE ${guard} ON CONFLICT(user_id) DO UPDATE SET email=excluded.email`).bind(target,email,operation));
     statements.push(db.prepare(`DELETE FROM memberships WHERE user_id=? AND ${guard}`).bind(target,operation));
     for (const m of links) statements.push(db.prepare(`INSERT INTO memberships(user_id,work_id,role,active) SELECT ?,?,?,1 WHERE ${guard}`).bind(target,m.workId,m.role,operation));
     statements.push(db.prepare(`DELETE FROM security_admins WHERE user_id=? AND ${guard}`).bind(target,operation));
@@ -117,6 +121,7 @@ export async function changeSecurity(db, actor, input, key) {
   statements.push(db.prepare(`INSERT INTO security_audit(id,actor_id,actor_name,action,target,reason,before_json,after_json,at) SELECT ?,?,?,?,?,?,?,?,? WHERE ${guard}`)
     .bind(operation,actor.id,actor.name,input.action,target,reason,JSON.stringify(before),JSON.stringify(after),new Date().toISOString(),operation));
   statements.push(db.prepare(`INSERT INTO security_operations(actor_id,key,fingerprint) SELECT ?,?,? WHERE ${guard}`).bind(actor.id,key,fingerprint,operation));
+  statements.push(...securityNotice(db,actor,target,input.action,operation));
   const result = await db.batch(statements);
   if (result[0].meta.changes !== 1) securityError(409, 'A segurança foi alterada. Atualize e confira antes de salvar.', 'SECURITY_CHANGED');
   return { ok: true };

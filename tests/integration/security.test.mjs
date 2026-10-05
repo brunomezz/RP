@@ -90,9 +90,9 @@ test('alterações têm motivo, revisão, idempotência e histórico atômico; v
 test('revogação durante um comando impede que a autorização antiga confirme a escrita',async()=>{
  const h=await createHarness();try{
   const admin=await h.login('admin');let intercepted=false;
-  const db={prepare:sql=>h.db.prepare(sql),batch:async statements=>{
-   // The operational write batch has state, operation and audit (3 statements).
-   if(!intercepted&&statements.length===3){intercepted=true;await change(h,admin,{action:'role',role:'almoxarifado',permissions:[]});}
+  let queuedWrite=false;
+  const db={prepare:sql=>{if(sql.startsWith("UPDATE erp_state"))queuedWrite=true;return h.db.prepare(sql);},batch:async statements=>{
+   if(!intercepted&&queuedWrite){queuedWrite=false;intercepted=true;await change(h,admin,{action:'role',role:'almoxarifado',permissions:[]});}
    return h.db.batch(statements);
   }};
   const api=createERPHandler(async()=>({id:'test-almox',name:'Teste · Almoxarifado'}));

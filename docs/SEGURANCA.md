@@ -1,4 +1,4 @@
-# Segurança e administração · versão 0.5
+# Segurança e administração · versão 0.6
 
 ## Como usar
 
@@ -54,3 +54,9 @@ Ao salvar previsão, anexos ou recebimento de um pedido, os outros formulários 
 Os testes locais cobrem liberação real de usuário pendente pelo administrador, permissões por ação/obra, chamada direta indevida, suspensão, transferência administrativa, proteção do último admin, mudanças concorrentes/idempotentes, revogação entre autorização e commit, persistência após reinício, migração pendente e concessão inicial explícita. O roteiro `tests/browser_security.py` usa API e D1 reais no ambiente local, sem simular a liberação de acesso.
 
 A normalização do agregado de 1 MiB, paginação adicional, limpeza de uploads, reservas, divergências estruturadas, alçadas financeiras e importação do orçamento continuam como evoluções próprias. Não foram introduzidas regras de negócio novas para esses módulos nesta entrega. Ver também a atualização em AUDITORIA_FUNCIONAL.md.
+
+## Comunicação e documentos
+
+Aplicar `0003_communication.sql` depois da 0002. Os novos poderes permitem exportar relatórios, enviar relatórios e importar PDFs; continuam vinculados à obra e validados no servidor. E-mail é cadastro administrativo explícito em Usuários; a identidade do login não é interpretada como endereço. Destinatário precisa estar ativo, ter acesso à mesma obra e poder de exportar. A API não aceita endereço arbitrário no envio. Alterar contato exige motivo e gera histórico.
+
+Documentos e relatórios enviados ficam no R2 privado; downloads passam pela sessão/obra autorizada. Leitura de notificações altera somente as da própria pessoa. O código não executa JavaScript embutido no PDF durante extração; texto extraído é escapado e só vira registro por confirmação validada. Credenciais Resend ficam apenas no servidor, fora do código e GitHub.

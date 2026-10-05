@@ -25,6 +25,7 @@ with sync_playwright() as p:
     # Grant is mocked solely to exercise UI recovery without reload; no real privileges are created.
     page.route('**/api/session',lambda r:r.fulfill(json={'id':'test-unassigned','name':'Teste · Sem função','access':[{'work_id':'TEST','name':'Obra de teste','role':'almoxarifado'}]}))
     page.route('**/api/state',lambda r:r.fulfill(json={'version':2,'revision':0,'requests':[],'orders':[],'contracts':[],'movements':[],'catalog':[],'suppliers':[],'works':[{'id':'TEST','name':'Obra de teste'}],'budgetServices':{}}))
+    page.route('**/api/notifications',lambda r:r.fulfill(json={'items':[],'unread':0,'offset':0,'nextOffset':None}))
     page.get_by_role('button',name='Verificar acesso').click()
     expect(page.get_by_role('heading',name='Painel de suprimentos',exact=True)).to_be_visible()
     expect(page.locator('#refresh')).to_be_enabled()
@@ -34,7 +35,7 @@ with sync_playwright() as p:
     expect(page.get_by_role('heading',name='Acesso ao ERP pendente')).to_be_visible()
     expect(page.locator('#refresh')).to_be_disabled()
     expect(page.locator('#nav')).to_be_empty()
-    page.unroute('**/api/state');page.unroute('**/api/session')
+    page.unroute('**/api/state');page.unroute('**/api/session');page.unroute('**/api/notifications')
     for failure in ['service','network','html']:
         if failure=='service':page.route('**/api/session',lambda r:r.fulfill(status=503,json={'error':'Serviço indisponível.'}))
         elif failure=='network':page.route('**/api/session',lambda r:r.abort('failed'))

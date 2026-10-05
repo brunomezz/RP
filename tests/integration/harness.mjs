@@ -37,8 +37,16 @@ export const personas = {
   admin: { id: "test-admin", name: "Teste · Administrador" },
   unassigned: { id: "test-unassigned", name: "Teste · Sem função" },
 };
-export async function createHarness(persistPath) {
+export async function createHarness(persistPath, options={}) {
   const sessions = new Map();
+  const mail={requests:[],accepted:new Map(),mode:'accepted'};
+  const mailTransport=async request=>{
+    const body=await request.json(),key=request.headers.get('Idempotency-Key');mail.requests.push({body,key});
+    if(mail.mode==='failed')return Response.json({message:'Teste: remetente recusado'},{status:422});
+    if(!mail.accepted.has(key))mail.accepted.set(key,'fake-mail-'+crypto.randomUUID());
+    if(mail.mode==='unknown')return Response.json({message:'Teste: resposta perdida após aceite'},{status:503});
+    return Response.json({id:mail.accepted.get(key)});
+  };
   const compiled = await build({
     entryPoints: [
       fileURLToPath(new URL("tests/integration/fixture-worker.mjs", root)),
@@ -96,7 +104,8 @@ export async function createHarness(persistPath) {
     r2Buckets: ["BUCKET"],
     d1Persist: persistPath ? persistPath + "/d1" : false,
     r2Persist: persistPath ? persistPath + "/r2" : false,
-    serviceBindings: { TEST_AUTH: auth },
+    bindings:options.mail?{RESEND_API_KEY:'local-test-only',REPORT_EMAIL_FROM:'ERP de teste <erp@example.test>'}:{},
+    serviceBindings: { TEST_AUTH: auth, TEST_MAIL: mailTransport },
   });
   const db = await mf.getD1Database("DB");
   await db.prepare('CREATE TABLE IF NOT EXISTS schema_migrations (name TEXT PRIMARY KEY)').run();
@@ -146,6 +155,7 @@ export async function createHarness(persistPath) {
   return {
     mf,
     db,
+    mail,
     async login(persona) {
       const r = await mf.dispatchFetch("http://erp.test/dev/login", {
         method: "POST",

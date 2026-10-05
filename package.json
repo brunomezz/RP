@@ -1,6 +1,6 @@
 {
   "name": "fasolo-simon-erp",
-  "version": "0.5.0",
+  "version": "0.6.0",
   "private": true,
   "type": "module",
   "scripts": {
@@ -17,5 +17,9 @@
   "devDependencies": {
     "esbuild": "^0.25.12",
     "miniflare": "^4.20260730.0"
+  },
+  "dependencies": {
+    "pdf-lib": "1.17.1",
+    "unpdf": "1.8.1"
   }
 }

@@ -1,6 +1,6 @@
-# ERP Fasolo e Simon · 0.5 em desenvolvimento
+# ERP Fasolo e Simon · 0.6 em desenvolvimento
 
-Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
+Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
 **Nenhum site existente foi substituído ou publicado.** O backend foi validado com D1/R2 no runtime local da Cloudflare. A conexão ao login real do ChatGPT e o manifesto do Sites ainda dependem do starter oficial: o adapter de produção falha com 503 enquanto não estiver conectado. Não apresentar esta branch como ERP já funcionando no Sites.
 
@@ -30,7 +30,7 @@ npm start
 
 ```sh
 npm test                   # 14 testes de domínio/filtros
-npm run test:integration   # 19 testes D1/R2, segurança, autenticação de teste e concorrência
+npm run test:integration   # 29 testes D1/R2, segurança, autenticação de teste e concorrência
 npm run build:sites        # bundle Fetch, sem publicação
 npm run demo               # HTML offline separado, somente exemplos locais
 ```
@@ -42,6 +42,8 @@ python tests/browser_shared.py
 python tests/browser_access.py
 python tests/browser_audit.py
 python tests/browser_security.py
+# Para o roteiro abaixo: iniciar com FES_TEST_MAIL=1 (envio simulado, nunca real)
+python tests/browser_communication.py
 ```
 
 `FES_CHROMIUM` indica o executável, padrão `/usr/bin/chromium`. A auditoria funcional, correções e sugestões por setor estão em [docs/AUDITORIA_FUNCIONAL.md](docs/AUDITORIA_FUNCIONAL.md). Os resultados e seu alcance estão em [docs/TESTES_COMPARTILHADOS.md](docs/TESTES_COMPARTILHADOS.md).
@@ -50,13 +52,13 @@ python tests/browser_security.py
 
 Em **Administração → Segurança**, o administrador libera pessoas por obra, configura poderes dos quatro cargos, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
 
-Aplicar `migrations/0002_security.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
+Aplicar as migrações pendentes, incluindo `migrations/0002_security.sql` e `migrations/0003_communication.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
 
 Os pedidos preservam campos/anexos ainda não salvos nos outros formulários do diálogo. Login, falta de acesso, suspensão, configuração incompleta e indisponibilidade têm mensagens próprias; as chamadas têm tempo limite de 20 segundos.
 
 ## Implantar posteriormente no Sites
 
-Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_5.md](docs/PROMPT_SITES_0_5.md).
+Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_6.md](docs/PROMPT_SITES_0_6.md).
 
 Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 
@@ -70,4 +72,4 @@ Comandos específicos validam função, obra, conteúdo, etapa e revisão do reg
 
 Esta implementação inicial mantém o estado operacional em um agregado JSON, limitado conservadoramente a **1 MiB**, com tabelas separadas para acesso, auditoria, operações e arquivos. Isso simplifica a integridade do fluxo existente, mas serializa escritas e não é adequado a um ERP de grande volume. Ao atingir o limite, novas escritas são recusadas sem apagar dados. Antes de ampliar o uso, normalizar as entidades e migrar transações, mantendo as garantias e os testes. O orçamento real precisa ser configurado por obra; não há integração contábil/fiscal, pagamentos, reservas de estoque, retenções ou revisão após emissão.
 
-Não há importação nesta versão. Caso necessária, desenvolver uma importação explícita e validada com identificadores de origem e prevenção de duplicidade; não copiar o snapshot do navegador para o D1. O histórico da API limita a consulta a 500 ações recentes por obra; o histórico dos registros continua no estado. Ainda faltam paginação da auditoria e rotina automática de limpeza dos uploads abandonados. A publicação no GitHub não implanta o ERP nem comprova funcionamento no Sites.
+Há importação explícita de PDFs com extração e revisão; não há importação do banco antigo do navegador. Nunca copiar seu snapshot para o D1. Consulte [docs/RELATORIOS_DOCUMENTOS.md](docs/RELATORIOS_DOCUMENTOS.md) para os limites de extração e a configuração de e-mail. O histórico da API limita a consulta a 500 ações recentes por obra; o histórico dos registros continua no estado. Ainda faltam paginação da auditoria e rotina automática de limpeza dos uploads abandonados. A publicação no GitHub não implanta o ERP nem comprova funcionamento no Sites.

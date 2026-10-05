@@ -22,11 +22,11 @@ export function mountSecurity(root, snapshot, { esc, submit }) {
   function userForm() {
     const u = users.find(u=>u.id===userSelect.value), form=root.querySelector('#security-user-form');
     if (!u) { form.innerHTML='<p>Nenhuma pessoa encontrada.</p>';return; }
-    form.innerHTML=`<p class="security-identity">Identificador: <strong>${esc(u.id)}</strong></p><label class="security-check"><input type="checkbox" name="disabled" ${u.disabled?'checked':''}> Suspender acesso ao ERP</label><label class="security-check"><input type="checkbox" name="admin" ${u.admin?'checked':''}> Administrador de segurança</label>
+    form.innerHTML=`<p class="security-identity">Identificador: <strong>${esc(u.id)}</strong></p><label>E-mail do colaborador<input name="email" type="email" maxlength="254" value="${esc(u.email||'')}" placeholder="nome@empresa.com.br"></label><label class="security-check"><input type="checkbox" name="disabled" ${u.disabled?'checked':''}> Suspender acesso ao ERP</label><label class="security-check"><input type="checkbox" name="admin" ${u.admin?'checked':''}> Administrador de segurança</label>
       <p class="subtitle">Marque os cargos em cada obra. Para remover o acesso à obra, desmarque todos os cargos dela.</p>
       ${works.length ? works.map(w=>`<fieldset><legend>${esc(w.name)}</legend>${Object.entries(roles).map(([role,label])=>`<label class="security-check"><input type="checkbox" name="membership" value="${esc(JSON.stringify({workId:w.id,role}))}" ${memberships.some(m=>m.user_id===u.id&&m.work_id===w.id&&m.role===role)?'checked':''}> ${label}</label>`).join('')}</fieldset>`).join('') : '<p class="note">Cadastre a primeira obra abaixo e depois vincule as pessoas.</p>'}
       <label>Motivo da alteração<textarea name="reason" maxlength="2000" required></textarea></label><div class="actions"><button class="primary">Salvar acesso do usuário</button></div>`;
-    form.onsubmit=e=>{e.preventDefault();const f=new FormData(form);submit({action:'user',userId:u.id,disabled:f.has('disabled'),admin:f.has('admin'),memberships:f.getAll('membership').map(JSON.parse),reason:f.get('reason')});};
+    form.onsubmit=e=>{e.preventDefault();const f=new FormData(form);submit({action:'user',userId:u.id,email:f.get('email'),disabled:f.has('disabled'),admin:f.has('admin'),memberships:f.getAll('membership').map(JSON.parse),reason:f.get('reason')});};
   }
   function roleForm() {
     const role=roleSelect.value,form=root.querySelector('#security-role-form');
