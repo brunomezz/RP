@@ -1,4 +1,4 @@
-# ERP Fasolo e Simon · 0.7 em desenvolvimento
+# ERP Fasolo e Simon · 0.8 em desenvolvimento
 
 Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
@@ -8,10 +8,10 @@ Esta branch implementa registros compartilhados, administração de usuários/ca
 
 - Interface HTML/CSS/JavaScript preservada, agora consumindo `/api/*` na mesma origem. Atualiza ao entrar, abrir outra tela e clicar em **Atualizar**. Sem gravação de registros em localStorage ou IndexedDB; sem sincronização automática de formulários abertos.
 - Backend Fetch/Workers em `hosting/worker.mjs` e `shared/api.mjs`, sem servidor Node em produção. Pode ser chamado pelas rotas do starter com os bindings D1/R2 e a identidade autenticada pelo helper oficial.
-- **DB**: D1/SQLite persistente. Obras e funções por identidade em `memberships`; estado operacional em `erp_state`; operações idempotentes, auditoria e metadados de arquivos em tabelas próprias.
+- **DB**: D1/SQLite persistente. Cadastro único de obras; cargos globais em `user_roles`, projetados em `memberships` para todas as obras; estado operacional em `erp_state`; operações idempotentes, auditoria e metadados de arquivos em tabelas próprias.
 - **BUCKET**: R2 privado. Upload/download passam pelo backend; o cliente não recebe acesso direto ao bucket. Até **10 MiB (10 × 1024² bytes)** por arquivo, preservando o limite anterior.
 - A interface distingue **Login necessário** (401), **Acesso ao ERP pendente** (403) e **Servidor indisponível** (falha de rede/serviço). Login reconhecido sem função não fica em “Conectando…”. **Verificar acesso** consulta novamente as permissões sem recarregar a página; nenhum acesso é concedido automaticamente.
-- **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem vínculo operacional ou administração explícita, retorna 403.
+- **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem cargo operacional ou administração explícita, retorna 403.
 - Exemplos fictícios e a versão offline estão em `prototype/`. O banco de produção começa sem solicitações, pedidos, contratos, estoque, materiais ou usuários de teste. Nenhum dado antigo do navegador é enviado, alterado ou removido.
 
 A escolha do backend nativo segue as capacidades informadas da documentação [Sites](https://learn.chatgpt.com/docs/sites): D1, R2 e autenticação gerenciada. Supabase via HTTPS exigiria outro provisionamento e uma sessão autenticada própria; a identidade do ChatGPT não é automaticamente uma sessão do Supabase. O backend nativo evita essa dependência. O esquema exato do manifesto e a assinatura do helper não puderam ser conferidos neste ambiente: a consulta direta à documentação recebeu bloqueio do proxy. Não foi inventado um `.openai/hosting.json`.
@@ -30,7 +30,7 @@ npm start
 
 ```sh
 npm test                   # 14 testes de domínio/filtros
-npm run test:integration   # 34 testes D1/R2, segurança, autenticação de teste e concorrência
+npm run test:integration   # 38 testes D1/R2, segurança, autenticação de teste e concorrência
 npm run build:sites        # bundle Fetch, sem publicação
 npm run demo               # HTML offline separado, somente exemplos locais
 ```
@@ -52,7 +52,7 @@ python tests/browser_communication.py
 
 ## Administração e primeiro acesso
 
-Em **Administração → Segurança**, o administrador libera pessoas por obra, configura poderes dos quatro cargos operacionais e exceções por usuário, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
+Em **Administração → Segurança**, o administrador define o cargo das pessoas, configura poderes dos quatro cargos operacionais e exceções por usuário, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
 
 Aplicar as migrações pendentes, incluindo `migrations/0002_security.sql` e `migrations/0003_communication.sql` e `migrations/0004_user_powers.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
 
@@ -60,7 +60,7 @@ Os pedidos preservam campos/anexos ainda não salvos nos outros formulários do 
 
 ## Implantar posteriormente no Sites
 
-Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_7.md](docs/PROMPT_SITES_0_7.md).
+Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_8.md](docs/PROMPT_SITES_0_8.md).
 
 Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 
@@ -80,12 +80,20 @@ Há importação explícita de PDFs com extração e revisão; não há importa�
 
 O botão Nova solicitação fica visível no Painel e em Solicitações. Sem o poder de criar na obra selecionada, fica desativado com orientação, em vez de desaparecer. Na 0.6.1, administrador sem vínculo operacional via como cadastrar/liberar obra e cargo. Na 0.7, o cargo Admin passa a ter acesso total explícito. O cabeçalho separa identidade, filtro de obra e os botões Atualizar/Histórico/Notificações. Sem obra liberada, mostra essa condição explicitamente. Relatórios e documentos usam seu próprio campo Obra; nessas telas o filtro global é ocultado com orientação.
 
-Para trazer a correção ao RP — Testes, atualizar somente a homologação com o código mais recente da branch, preservando o login oficial e os mesmos recursos D1/R2. Não é necessária uma nova migração nesta correção. Cadastrar obra em Segurança não libera automaticamente o acesso: vincular o usuário a um cargo nessa obra e conferir o poder Criar solicitações.
+Para trazer a correção ao RP — Testes, atualizar somente a homologação com o código mais recente da branch, preservando o login oficial e os mesmos recursos D1/R2. Na 0.8, aplicar a migração 0005 pendente: cadastrar obra a disponibiliza automaticamente a todos com cargo ativo. O poder Criar solicitações continua necessário.
 
 ## Segurança simplificada · 0.7
 
-Segurança tem quatro abas: Usuários, Poderes por cargo, Obras e Histórico. Na ficha da pessoa, selecionar seu cargo e marcar as obras permitidas. Para vários cargos existentes, o modo por obra conserva os vínculos; escolher outro cargo é uma alteração explícita. Personalizar poderes permite Seguir cargo, Permitir ou Bloquear por pessoa/obra, com resultado efetivo ao lado. Bloqueio individual prevalece sobre todos os cargos nessa obra; herança acompanha as próximas alterações do cargo.
+Segurança tem quatro abas: Usuários, Poderes por cargo, Obras e Histórico. Na ficha da pessoa, selecionar seu cargo. Todas as obras atuais e futuras ficam disponíveis automaticamente. Mais de um cargo permite funções cumulativas globais. Personalizar poderes permite Seguir cargo, Permitir ou Bloquear por pessoa/obra, com resultado efetivo ao lado. Bloqueio individual prevalece sobre todos os cargos nessa obra; herança acompanha as próximas alterações do cargo.
 
 **Admin tem acesso total a todas as obras atuais e futuras, a todas as ações e à Segurança.** Os administradores já explicitamente cadastrados passam a representar esse cargo nesta atualização. Não promove visitantes nem cargos comuns. Admin não aceita redução de poderes; escolher outro cargo para limitar a pessoa. Suspensão continua bloqueando a conta; o último Admin ativo é protegido. Regras de processo e integridade continuam obrigatórias.
 
-Aplicar a migração pendente `0004_user_powers.sql` na homologação antes de usar a 0.7; ela cria `user_permissions`, preserva dados/cargos e não restaura poderes removidos. Não há novo segredo. Exceções, vínculos e promoção/demissão de Admin são salvos com motivo, revisão, auditoria e idempotência na mesma transação. Permissões individuais não liberam uma obra sem vínculo. Relatórios/e-mail/notificações consideram o Admin e os poderes efetivos.
+Aplicar a migração pendente `0004_user_powers.sql` na homologação antes de usar a 0.7; ela cria `user_permissions`, preserva dados/cargos e não restaura poderes removidos. Não há novo segredo. Exceções, vínculos e promoção/demissão de Admin são salvos com motivo, revisão, auditoria e idempotência na mesma transação. Permissões individuais não atribuem cargo a uma pessoa sem função. Relatórios/e-mail/notificações consideram o Admin e os poderes efetivos.
+
+## Cadastro único de obras · 0.8
+
+Uma obra pertence à empresa: o Admin a cadastra uma vez e todos os usuários ativos com cargo acessam as obras atuais e futuras. Basta informar o nome; o código é opcional e gerado automaticamente. Nome/código repetido é recusado no servidor. Estoque, orçamento e vínculos de registros continuam separados por obra.
+
+A ficha de usuário não pede seleção de obras. O cargo é global; pode ser definido antes da primeira obra. Sem cargo, o login permanece pendente; suspensão bloqueia a conta. Poderes por cargo e exceções por pessoa/obra continuam disponíveis.
+
+Aplicar **0005_company_works.sql** depois das migrações anteriores, sem recriar D1/R2. Ela transforma a união dos cargos ativos antigos em cargos globais e estende o acesso a todas as obras, conforme solicitado. Preserva registros, anexos, exceções e Admins; não atribui cargo a visitantes nem restaura cargos removidos quando reaplicada. Cadastro de obra e mudança de cargo atualizam o acesso na mesma transação com revisão, idempotência e histórico. Não há novo segredo.

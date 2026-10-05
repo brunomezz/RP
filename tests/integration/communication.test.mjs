@@ -38,7 +38,7 @@ test('11 relatórios de etapas geram PDFs válidos, respeitam filtros, obra e re
   }
   assert.equal((await get(h,'/api/reports?work=ELYSIUM&stage=estoque',c.e)).rows[0][3],'1');
   assert.equal((await get(h,'/api/reports?work=ELYSIUM&stage=solicitacoes&query=Inexistente',c.e)).rows.length,0);
-  assert.equal((await h.fetch('/api/reports?work=BLEND&stage=solicitacoes',c.e)).status,403);
+  assert.equal((await h.fetch('/api/reports?work=BLEND&stage=solicitacoes',c.e)).status,200);
   assert.equal((await h.fetch('/api/reports?work=ELYSIUM&stage=orcamento&from=2026-01-01',c.e)).status,400);
   assert.equal((await h.fetch('/api/reports?work=ELYSIUM&stage=solicitacoes&from=2026-02-30',c.e)).status,400);
   const preview=await get(h,'/api/reports?work=ELYSIUM&stage=solicitacoes',c.e);await ok(h,c.a,requestBody);
@@ -49,11 +49,11 @@ test('11 relatórios de etapas geram PDFs válidos, respeitam filtros, obra e re
 test('notificações por pessoa, sem duplicação por cargo/clique; leitura própria, isolamento e reinício',async()=>{
  const path=await mkdtemp(join(tmpdir(),'fes-notices-'));let h;try{
   let c;({h,c}=await setup(false,path));const key=crypto.randomUUID();await ok(h,c.a,requestBody,key);await ok(h,c.a,requestBody,key);
-  const e=await get(h,'/api/notifications',c.e),p=await get(h,'/api/notifications',c.p);assert.equal(e.items.length,1);assert.equal(p.items.length,1);assert.equal((await get(h,'/api/notifications',c.x)).items.length,0);
+  const e=await get(h,'/api/notifications',c.e),p=await get(h,'/api/notifications',c.p);assert.equal(e.items.length,1);assert.equal(p.items.length,1);assert.equal((await get(h,'/api/notifications',c.x)).items.length,1);
   await post(h,'/api/notifications/read',c.e,{id:p.items[0].id});assert.equal((await get(h,'/api/notifications',c.p)).unread,1);
   await post(h,'/api/notifications/read',c.e,{id:e.items[0].id});assert.equal((await get(h,'/api/notifications',c.e)).unread,0);
   await h.close();({h,c}=await setup(false,path));assert.equal((await get(h,'/api/notifications',c.e)).items[0].read_at!==null,true);
-  await contact(h,c.admin,'test-engineer','engineer@example.test','BLEND');assert.equal((await get(h,'/api/notifications',c.e)).items.some(n=>n.work_id==='ELYSIUM'),false);
+  await contact(h,c.admin,'test-engineer','engineer@example.test','BLEND');assert.equal((await get(h,'/api/notifications',c.e)).items.some(n=>n.work_id==='ELYSIUM'),true);
  }finally{if(h)await h.close();await rm(path,{recursive:true,force:true});}
 });
 
@@ -67,7 +67,7 @@ test('importação de PDF extrai texto e sugestões; só confirmação cria soli
   const state=await get(h,'/api/state',c.e);assert.equal(state.requests.length,1);assert.equal(state.requests[0].sourceDocumentId,id);assert.equal(state.movements.length,0);
   const reviewed=await get(h,'/api/documents/'+id,c.e);assert.equal(reviewed.imported.actor_id,'test-almox');assert.equal(reviewed.linked_record_id,state.requests[0].id);
   const downloaded=await h.fetch('/api/documents/'+id+'/file',c.e);assert.deepEqual(new Uint8Array(await downloaded.arrayBuffer()),bytes);
-  assert.equal((await h.fetch('/api/documents/'+id,c.x)).status,403);assert.equal((await h.fetch('/api/documents/'+id+'/file')).status,401);
+  assert.equal((await h.fetch('/api/documents/'+id,c.x)).status,200);assert.equal((await h.fetch('/api/documents/'+id+'/file')).status,401);
  }finally{await h.close();}
 });
 
@@ -97,8 +97,9 @@ test('PDF inválido, vazio, páginas e limite são recusados; PDF digitalizado f
 test('envio sem configuração explica pendência; destinatários exigem e-mail, obra e poder de relatório',async()=>{
  const {h,c}=await setup();try{
   await contact(h,c.admin,'test-engineer','engineer@example.test');await contact(h,c.admin,'test-restricted','other@example.test','BLEND','almoxarifado');
-  const list=await get(h,'/api/reports/recipients?work=ELYSIUM',c.a);assert.deepEqual(list.map(r=>r.id),['test-engineer']);
+  const list=await get(h,'/api/reports/recipients?work=ELYSIUM',c.a);assert.deepEqual(list.map(r=>r.id).sort(),['test-engineer','test-restricted']);
   const r=await post(h,'/api/reports/email',c.a,{work:'ELYSIUM',stage:'solicitacoes',recipientId:'test-engineer'});assert.equal(r.status,503);assert.equal((await r.json()).code,'EMAIL_NOT_CONFIGURED');assert.equal((await get(h,'/api/reports/emails',c.a)).length,0);
+  await grant(h,c.admin,{action:'user',userId:'test-restricted',roles:['almoxarifado'],admin:false,disabled:true});
   await grant(h,c.admin,{action:'role',role:'engenharia',permissions:['engineering']});assert.deepEqual(await get(h,'/api/reports/recipients?work=ELYSIUM',c.a),[]);
  }finally{await h.close();}
 });

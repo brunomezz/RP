@@ -100,8 +100,8 @@ test("duas sessões compartilham solicitação; identidade e orçamento não vê
     assert.equal(r.requester, "Teste · Almoxarifado");
     assert.equal(r.history[0].actorId, "test-almox");
     assert.ok(r.history[0].at.includes("T"));
-    assert.equal((await snapshot(h, c.x)).requests.length, 0);
-    assert.equal((await snapshot(h, c.x)).budgetServices.ELYSIUM, undefined);
+    assert.equal((await snapshot(h, c.x)).requests.length, 1);
+    assert.ok((await snapshot(h, c.x)).budgetServices.ELYSIUM.length);
     const spoof = await command(h, c.a, {
       action: "engineering",
       id,
@@ -185,7 +185,7 @@ test("persistência D1/R2 após logout, outra sessão e reinício completo do ru
   }
 });
 
-test("API bloqueia acesso sem sessão, sem função, função errada, obra errada e origem externa", async () => {
+test("API bloqueia acesso sem sessão, sem função, função errada, obra inexistente e origem externa", async () => {
   const { h, cookies: c } = await setup();
   try {
     assert.equal((await h.fetch("/api/state")).status, 401);
@@ -195,8 +195,8 @@ test("API bloqueia acesso sem sessão, sem função, função errada, obra errad
       (
         await command(h, c.x, {
           action: "create",
-          work: "ELYSIUM",
-          purpose: "Intruso",
+          work: "OBRA_INEXISTENTE",
+          purpose: "Obra inexistente",
           items: [item],
         })
       ).status,
@@ -407,7 +407,8 @@ test("anexo R2 compartilhado, vinculado, imutável, limite de 10 MB e obra autor
     assert.equal(download.status, 200);
     assert.equal(await download.text(), "abcd");
     assert.match(download.headers.get("content-disposition"), /^attachment/);
-    assert.equal((await h.fetch("/api/files/" + f.id, c.x)).status, 403);
+    assert.equal((await h.fetch("/api/files/" + f.id, c.x)).status, 200);
+    assert.equal((await h.fetch("/api/files/" + f.id, await h.login("unassigned"))).status,403);
     assert.equal(
       (
         await h.fetch("/api/files/" + f.id, c.p, {

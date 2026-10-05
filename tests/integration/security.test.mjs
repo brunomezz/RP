@@ -26,20 +26,20 @@ test('Admin opera todas as obras e configura segurança; não admin e origem ext
  }finally{await h.close();}
 });
 
-test('liberação real de usuário pendente, cargos cumulativos por obra, suspensão e reativação na mesma sessão',async()=>{
+test('liberação real de usuário pendente, cargos globais cumulativos, suspensão e reativação na mesma sessão',async()=>{
  const h=await createHarness();try{
   const a=await h.login('admin'),u=await h.login('unassigned');
   assert.equal((await get(h,'/api/identity',u)).id,'test-unassigned');
   assert.equal((await h.fetch('/api/session',u)).status,403);
   await change(h,a,user('test-unassigned',[{workId:'ELYSIUM',role:'almoxarifado'},{workId:'ELYSIUM',role:'engenharia'}]));
-  const session=await get(h,'/api/session',u);assert.equal(session.access.length,2);
+  const session=await get(h,'/api/session',u);assert.equal(session.access.length,4);
   assert.equal((await post(h,'/api/commands',u,create)).status,200);
-  assert.equal((await post(h,'/api/commands',u,{...create,work:'BLEND'})).status,403);
+  assert.equal((await post(h,'/api/commands',u,{...create,work:'BLEND',items:[{...item,service:'estrutura'}]})).status,200);
   await change(h,a,user('test-unassigned',[],false,true));
   const blocked=await h.fetch('/api/state',u);assert.equal(blocked.status,403);assert.equal((await blocked.json()).code,'ACCOUNT_DISABLED');
   await get(h,'/api/identity',u);assert.equal((await h.fetch('/api/session',u)).status,403); // Login never clears suspension.
   await change(h,a,user('test-unassigned',[{workId:'BLEND',role:'almoxarifado'}]));
-  assert.deepEqual((await get(h,'/api/state',u)).requests,[]);
+  assert.equal((await get(h,'/api/state',u)).requests.length,2);
  }finally{await h.close();}
 });
 
@@ -110,7 +110,7 @@ test('obra criada sem substituir registros; permissões de anexos acompanham o c
   await change(h,a,{action:'work',workId:'NOVA',name:'Obra nova'});
   assert.equal((await get(h,'/api/state',u)).requests.length,1);
   await change(h,a,user('test-unassigned',[{workId:'NOVA',role:'engenharia'}]));const n=await h.login('unassigned');
-  const state=await get(h,'/api/state',n);assert.equal(state.works[0].id,'NOVA');assert.equal(state.budgetServices.NOVA[0].id,'nao-previsto');
+  const state=await get(h,'/api/state',n);assert.ok(state.works.some(w=>w.id==='NOVA'));assert.equal(state.budgetServices.NOVA[0].id,'nao-previsto');
   await change(h,a,{action:'role',role:'suprimentos',permissions:['quoteFiles']});
   const file={targetKind:'request',targetId:id,purpose:'quoteFiles',name:'teste.txt',size:3};
   const reserved=await post(h,'/api/files',p,file);assert.equal(reserved.status,201,await reserved.clone().text());const f=await reserved.json();

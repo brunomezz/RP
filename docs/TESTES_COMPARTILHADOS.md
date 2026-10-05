@@ -5,7 +5,7 @@ Execução em 2026-10-05, checkout separado, Node 24, Miniflare 4/workerd com D1
 ## Resultados
 
 - `npm test`: **14/14** testes de domínio e filtros passaram.
-- `npm run test:integration`: **34/34** testes passaram, incluindo o bloqueio do adapter de produção ainda não configurado.
+- `npm run test:integration`: **38/38** testes passaram, incluindo o bloqueio do adapter de produção ainda não configurado.
 - Segurança: dez testes de integração adicionais verificam administração sem obra, bloqueios diretos, liberação/suspensão, poderes configuráveis, último admin sob concorrência, histórico/idempotência, revogação entre autorização e commit, cadastro de obra sem sobrescrever dados e com limite de tamanho, anexos, reinício/migração sem restaurar poderes, configuração pendente e bootstrap explícito.
 - `python tests/browser_security.py`: passou com administração real no D1 local; liberação de pessoa pendente sem recarregar, mudança de poder refletida na interface e API, suspensão/reativação, bloqueio da remoção do último admin, obra e histórico.
 - `npm run build:sites`: bundle Fetch/Workers gerado; não executa Node no Sites e não inclui o serviço de autenticação de teste.
@@ -14,16 +14,16 @@ Execução em 2026-10-05, checkout separado, Node 24, Miniflare 4/workerd com D1
 - `python tests/browser_audit.py`: passou com quatro sessões; 14 telas, cadastro de material/fornecedor, edição de contato, solicitação mista, devolução técnica, revisão, três propostas, anexos de proposta/pedido/recebimento, devolução do diretor, escolha diferente da sugestão, pedido e contrato, atualização de chegada, recebimentos/medições/saídas fracionários, filtros, CSV e histórico. Verificou também fechamento de formulário para consulta e exibição literal de unidade com markup cadastrada pela API real. Verificou preservação de arquivo selecionado ao salvar previsão e de previsão não salva ao anexar arquivo. Catálogo vazio foi simulado apenas para a regressão da interface.
 - `python tests/browser_communication.py`: passou com extração real de PDF textual, revisão explícita de solicitação/proposta, deduplicação, download original, 11 etapas de relatório e exportação, notificações isoladas e envio **simulado**. O mock não envia e-mail externo nem comprova entrega.
 - Dez testes de integração de comunicação verificaram PDF real, filtros/revisão, acesso por obra, notificações persistentes/isoladas, extração real e limites (incluindo PDF digitalizado), origem/confirmação única, recuperação idempotente de resposta incerta e envio interrompido, janela segura, revogação de poderes e migração ausente.
-- Os sete roteiros de navegador terminaram sem exceções JavaScript não tratadas; não são um teste de carga nem uma auditoria de segurança completa. Detalhes e sugestões: [AUDITORIA_FUNCIONAL.md](AUDITORIA_FUNCIONAL.md).
+- Os oito roteiros de navegador terminaram sem exceções JavaScript não tratadas; não são um teste de carga nem uma auditoria de segurança completa. Detalhes e sugestões: [AUDITORIA_FUNCIONAL.md](AUDITORIA_FUNCIONAL.md).
 - O HTML offline de exemplos foi gerado na rodada anterior da 0.4; `prototype/` não foi alterado nesta entrega.
 
 | Critério | Evidência executada |
 | --- | --- |
 | Usuário 1 cria e usuário 2 vê | Sessões distintas nos testes de API e navegador, Atualizar e troca de tela |
 | Dados sobrevivem à saída e reinício | Logout invalida sessão de teste; novo login vê os registros; runtime Miniflare encerrado/recriado com mesmo diretório preserva D1 e bytes R2 |
-| Sem permissão não aprova pela API | 401 sem sessão; 403 sem função, em outra obra e com função errada; corpo com autor forjado não muda sessão; zero pedidos antes da aprovação autorizada |
+| Sem permissão não aprova pela API | 401 sem sessão; 403 sem cargo, com obra inexistente e com função errada; corpo com autor forjado não muda sessão; zero pedidos antes da aprovação autorizada |
 | Concorrência/idempotência | Aprovações e recebimentos em paralelo com mesma chave têm um efeito; ações com chaves diferentes/revisão antiga recebem 409; saídas concorrentes não deixam saldo negativo |
-| Anexo compartilhado | Proposta e recebimento enviados por uma sessão baixados por outras, bytes iguais; outra obra bloqueada; anexo não finalizado indisponível; arquivo finalizado não pode ser substituído |
+| Anexo compartilhado | Proposta e recebimento enviados por uma sessão baixados por outras, bytes iguais; pessoa sem cargo bloqueada; anexo não finalizado indisponível; arquivo finalizado não pode ser substituído |
 | Limite e validação | Reserva acima de 10 MiB recusada; corpo com tamanho diferente recusado; serviço de outra obra, data inválida, quantidade negativa e material inexistente recusados |
 | Histórico | IDs de autores e horários do servidor, motivo da devolução, uma auditoria por aprovação; medição atribuída à engenharia sem entrada de estoque |
 | Separação do protótipo | localStorage com registro antigo permaneceu intacto, não apareceu no estado compartilhado; banco operacional inicia vazio; apenas fixtures locais cadastram valores de teste |
@@ -46,3 +46,9 @@ Nesta correção também passaram novamente os cinco roteiros anteriores (shared
 34 testes de integração passaram, incluindo cinco novos de Admin e exceções individuais. A expectativa antiga de Admin somente administrativo foi substituída pela nova regra solicitada de acesso total. Testes continuam verificando bloqueio de pessoas comuns e regras de etapa para Admin. Permitir/Bloquear é isolado por pessoa/obra; bloqueio domina múltiplos cargos, herança acompanha cargo, invalidez não altera revisão, revogação durante comando impede commit, restart/migração preserva exceções e retirada da obra as remove. Destinatários de relatórios incluem Admin e respeitam bloqueios individuais.
 
 Sete roteiros de navegador passaram: shared, access, audit, communication, navigation, security e user_powers. Os dois últimos usam cargo e exceções pela nova interface, sem mocks de permissão. Verificam concessão/demissão explícita de Admin, cargo de usuário, Permitir/Bloquear/Seguir cargo, padrão do cargo intacto e API bloqueada. Os 14 testes de domínio passaram e o bundle foi compilado. Tudo foi validado no runtime local D1/R2; não houve publicação ou validação remota no Sites.
+
+## Cadastro único de obras · 0.8
+
+Quatro testes adicionais em `tests/integration/company-works.test.mjs` passaram: obra única compartilhada, código automático e duplicidades; cargo antes de qualquer obra, troca e remoção; migração real preservando dados/união de cargos e revogação após reaplicação/reinício; concorrência/idempotência no cadastro e na alteração simultânea de cargo/obra.
+
+`tests/browser_company_works.py` passou com Admin, engenharia, almoxarifado e pessoa inicialmente pendente: cadastro com nome, obra automática nos seletores, solicitação visível em outra sessão, cargo sem escolha de obras e bloqueio de duplicidade. Os demais sete roteiros foram adaptados ao acesso global e executados novamente. Usuários com cargo consultam todas as obras; contas sem cargo/suspensas continuam bloqueadas. Poderes e vínculos operacionais entre obras continuam validados.

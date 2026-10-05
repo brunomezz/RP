@@ -22,7 +22,7 @@ with sync_playwright() as p:
     assert pending.request.get(url+'/api/security').status==403
     admin.locator('#refresh').click();done(admin)
     admin.get_by_role('tab',name='Usuários',exact=True).click();form=select_user('test-unassigned')
-    form.locator('#security-user-role').select_option('almoxarifado');form.locator('[name=workAccess][value=ELYSIUM]').check()
+    form.locator('#security-user-role').select_option('almoxarifado')
     save_user(form,'Liberar acesso pela interface')
     pending.get_by_role('button',name='Verificar acesso').click();expect(pending.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(pending.get_by_role('button',name='Nova solicitação')).to_be_visible()
     expect(pending.get_by_role('link',name='Segurança',exact=True)).to_have_count(0)
@@ -42,7 +42,7 @@ with sync_playwright() as p:
     admin.get_by_role('tab',name='Histórico',exact=True).click();expect(admin.locator('#content')).to_contain_text('Teste · Administrador');expect(admin.locator('#content')).to_contain_text('Restaurar poderes originais')
     # Return the fixture to pending for the access regression and repeatable runs.
     admin.get_by_role('tab',name='Usuários',exact=True).click();form=select_user('test-unassigned')
-    for checkbox in form.locator('[name="workAccess"]').all():checkbox.uncheck()
+    form.locator('#security-user-role').select_option('none')
     save_user(form,'Encerrar teste e restaurar acesso pendente')
     assert not errors,errors
     browser.close()

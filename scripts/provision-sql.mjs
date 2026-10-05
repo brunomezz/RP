@@ -62,9 +62,11 @@ for (const m of config.memberships) {
     throw Error("Permissão inválida.");
   sql.push(
     `INSERT OR IGNORE INTO security_users(id,name) VALUES(${quote(m.userId)},${quote(m.userId)});`,
-    `INSERT INTO memberships(user_id,work_id,role,active) VALUES(${quote(m.userId)},${quote(m.workId)},${quote(m.role)},1) ON CONFLICT(user_id,work_id,role) DO UPDATE SET active=1;`,
+    `INSERT OR IGNORE INTO user_roles(user_id,role) VALUES(${quote(m.userId)},${quote(m.role)});`,
+    `INSERT INTO memberships(user_id,work_id,role,active) SELECT ${quote(m.userId)},id,${quote(m.role)},1 FROM works WHERE 1 ON CONFLICT(user_id,work_id,role) DO UPDATE SET active=1;`,
   );
 }
+sql.push("INSERT INTO memberships(user_id,work_id,role,active) SELECT r.user_id,w.id,r.role,1 FROM user_roles r CROSS JOIN works w WHERE 1 ON CONFLICT(user_id,work_id,role) DO UPDATE SET active=1;");
 sql.push("UPDATE security_meta SET revision=revision+1 WHERE id=1;");
 console.log(
   "-- Executar somente no D1 do site de homologação, com a aplicação sem escritas.\n-- Depois da configuração inicial, administrar acessos pela aba Segurança.\n" +

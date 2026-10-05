@@ -126,13 +126,10 @@ export async function createHarness(persistPath, options={}) {
     .run();
   const seedMemberships = !await db.prepare("SELECT id FROM security_migrations WHERE id='fixture-memberships'").first();
   for (const p of Object.values(personas))
-    if (seedMemberships && p.role)
-      await db
-        .prepare(
-          "INSERT OR IGNORE INTO memberships(user_id,work_id,role) VALUES(?,?,?)",
-        )
-        .bind(p.id, p.work, p.role)
-        .run();
+    if (seedMemberships && p.role) await db.batch([
+      db.prepare('INSERT OR IGNORE INTO user_roles(user_id,role) VALUES(?,?)').bind(p.id,p.role),
+      db.prepare('INSERT OR IGNORE INTO memberships(user_id,work_id,role) SELECT ?,id,? FROM works').bind(p.id,p.role),
+    ]);
   if (seedMemberships) await db.prepare("INSERT INTO security_migrations(id) VALUES('fixture-memberships')").run();
   const row = await db.prepare("SELECT data FROM erp_state WHERE id=1").first(),
     state = JSON.parse(row.data);

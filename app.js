@@ -25,7 +25,7 @@ function syncConnectionControls(){
  const help=document.querySelector('#work-help');
  if(!ready)help.textContent='As obras aparecem após a liberação do seu acesso.';
  else if(localWork)help.textContent=({seguranca:'Administração de usuários, obras e cargos', 'central-relatorios':'Selecione a obra no formulário do relatório.',documentos:'Selecione a obra no formulário de importação.',notificacoes:'Notificações das suas obras autorizadas'})[page];
- else if(!state.works.length)help.innerHTML=session?.isAdmin?'Nenhuma obra cadastrada. <a href="#seguranca">Cadastrar a primeira obra</a>':'O administrador precisa liberar seu acesso a uma obra.';
+ else if(!state.works.length)help.innerHTML=session?.isAdmin?'Nenhuma obra cadastrada. <a href="#seguranca">Cadastrar a primeira obra</a>':'Nenhuma obra cadastrada. Peça ao Admin para cadastrar a primeira obra.';
  else help.textContent='';
  document.querySelector('[data-action="audit"]').disabled=!ready||!session?.access.length;
 }
@@ -37,9 +37,9 @@ function connectionFailure(error){
  if(error.status===401){session=null;title='Login necessário';description='Entre com sua conta do ChatGPT e clique em Verificar acesso.';label='Verificar acesso';document.querySelector('#identity').textContent='Login necessário';document.querySelector('.demo').textContent='Entre para acessar o ERP.';}
  else if(error.code==='ERP_SETUP_REQUIRED'){title='Configuração pendente';description='O responsável pelo ambiente precisa concluir a configuração de banco, arquivos e segurança. Depois, clique em Tentar novamente.';document.querySelector('#identity').textContent=session?.name||'Configuração pendente';document.querySelector('.demo').textContent='O ambiente precisa de configuração.';}
  else if(error.code==='ACCOUNT_DISABLED'){session=null;title='Acesso suspenso';description='Seu acesso ao ERP foi suspenso. Procure o administrador para revisar a liberação.';document.querySelector('#identity').textContent='Acesso suspenso';document.querySelector('.demo').textContent='Acesso suspenso pelo administrador.';}
- else if(error.status===403){if(session)session={...session,access:[]};title='Acesso ao ERP pendente';description='Um responsável precisa cadastrar sua função e liberar seu acesso a uma obra. Depois do cadastro, clique em Verificar acesso.';label='Verificar acesso';document.querySelector('#identity').textContent=session?.name||'Acesso restrito';document.querySelector('.demo').textContent=session?'Login reconhecido · acesso ao ERP pendente.':'Acesso ao ERP restrito.';}
+ else if(error.status===403){if(session)session={...session,access:[]};title='Acesso ao ERP pendente';description='Um responsável precisa definir seu cargo. Depois, clique em Verificar acesso.';label='Verificar acesso';document.querySelector('#identity').textContent=session?.name||'Acesso restrito';document.querySelector('.demo').textContent=session?'Login reconhecido · acesso ao ERP pendente.':'Acesso ao ERP restrito.';}
  else{title='Servidor indisponível';description='Não foi possível carregar o ERP agora. Tente novamente em alguns instantes.';document.querySelector('#identity').textContent=session?.name||'Sem conexão';document.querySelector('.demo').textContent=session?'Login reconhecido · não foi possível carregar o ERP.':'Não foi possível conectar ao servidor.';}
- content.innerHTML=heading('ACESSO AO ERP',title,description,`<button data-action="reconnect">${label}</button>`)+(error.status===403&&session?.id?`<div class="note">Informe este identificador ao administrador para liberar seu acesso: <strong class="security-identity">${esc(session.id)}</strong></div>`:'');
+ content.innerHTML=heading('ACESSO AO ERP',title,description,`<button data-action="reconnect">${label}</button>`)+(error.status===403&&session?.id?`<div class="note">Informe este identificador ao administrador para definir seu cargo: <strong class="security-identity">${esc(session.id)}</strong></div>`:'');
 }
 async function refresh(){
  try{

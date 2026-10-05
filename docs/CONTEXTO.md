@@ -18,13 +18,13 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.7, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.8, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
 A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Há importação explícita de PDFs, com sugestões revisadas antes de criar solicitação ou proposta. Não há importação do banco antigo do navegador.
 
 ## Arquitetura escolhida
 
-Backend Fetch/Workers para Sites com D1 (`DB`), R2 privado (`BUCKET`) e Sign in with ChatGPT. Não depende do antigo servidor Node em produção. A identidade autenticada é adaptada pelo helper oficial e as permissões internas são consultadas em `memberships` por obra/função, no servidor.
+Backend Fetch/Workers para Sites com D1 (`DB`), R2 privado (`BUCKET`) e Sign in with ChatGPT. Não depende do antigo servidor Node em produção. A identidade autenticada é adaptada pelo helper oficial e as permissões internas são definidas em `user_roles` globalmente e projetadas em `memberships` para todas as obras, no servidor.
 
 `migrations/0001_shared.sql` cria estado operacional vazio, obras, funções, arquivos, auditoria e operações idempotentes. O estado inicial não contém exemplos nem pessoas de teste. Orçamentos reais são configurados por obra; `scripts/provision-sql.mjs` valida uma configuração administrativa explícita e gera SQL revisável, sem conectar ao banco. Campos de recursos e configuração estão em [IMPLANTACAO_SITES.md](IMPLANTACAO_SITES.md).
 
@@ -32,7 +32,7 @@ Comandos aceitam campos específicos e revisão esperada; rejeitam ações fora 
 
 ## Administração de acesso na versão 0.5
 
-A aba **Segurança** administra usuários, vínculos por obra e poderes dos quatro cargos. Os poderes iniciais preservam as responsabilidades descritas acima; o administrador pode delegar/remover ações explicitamente. Na 0.7, Admin concede acesso operacional total às obras atuais e futuras. Os demais cargos continuam limitados às obras liberadas. A leitura dos registros da obra exige vínculo ativo; os cadastros da empresa continuam compartilhados entre pessoas com acesso operacional.
+A aba **Segurança** administra usuários, cargos globais e poderes dos quatro cargos. Os poderes iniciais preservam as responsabilidades descritas acima; o administrador pode delegar/remover ações explicitamente. Na 0.7, Admin concede acesso operacional total às obras atuais e futuras. Na 0.8, todos os cargos ativos recebem automaticamente acesso às obras atuais e futuras, por solicitação do usuário. A leitura exige sessão com cargo ativo; os cadastros da empresa continuam compartilhados entre pessoas com acesso operacional.
 
 `migrations/0002_security.sql` preserva os vínculos atuais e acrescenta usuários, administradores, poderes dos cargos, revisão de segurança, auditoria e idempotência administrativas. Todas as mudanças exigem motivo. Há proteção do último administrador ativo, validação por ação no servidor e conferência da revisão de segurança no commit operacional. O primeiro administrador é explicitamente configurado pelo operador do ambiente; demais concessões podem ser feitas pela aba. Procedimento: [SEGURANCA.md](SEGURANCA.md).
 
@@ -40,7 +40,7 @@ A pessoa aparece para o administrador depois de entrar uma vez, mesmo que ainda 
 
 ## Correções da auditoria funcional
 
-Login, acesso interno e indisponibilidade são apresentados separadamente; um login válido sem função/obra mostra **Acesso ao ERP pendente**, identifica a pessoa e oferece **Verificar acesso**. Os dados carregados são descartados quando a sessão ou o acesso deixam de ser válidos. A API continua exigindo as permissões existentes.
+Login, acesso interno e indisponibilidade são apresentados separadamente; um login válido sem cargo mostra **Acesso ao ERP pendente**, identifica a pessoa e oferece **Verificar acesso**. Os dados carregados são descartados quando a sessão ou o acesso deixam de ser válidos. A API continua exigindo as permissões existentes.
 
 Recebimentos, medições e saldo de estoque usam soma decimal para evitar resíduos de operações como 0,1 + 0,2. Valores anteriormente gravados com resíduos não são alterados automaticamente. Texto da unidade de material e cabeçalhos das tabelas é escapado antes da exibição. Catálogo vazio apresenta uma orientação na saída de estoque. Formulários apenas para consulta permitem fechar/cancelar. As movimentações exibem separadamente o retirante e o operador autenticado, inclusive no CSV.
 
@@ -48,7 +48,7 @@ Escopo, evidências e recomendações por setor: [AUDITORIA_FUNCIONAL.md](AUDITO
 
 ## Verificação e configuração pendente
 
-14 testes de domínio e 34 testes de integração passaram. Sete roteiros Chromium passaram, incluindo comunicação/PDFs, navegação e poderes individuais, além de: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
+14 testes de domínio e 38 testes de integração passaram. Oito roteiros Chromium passaram, incluindo comunicação/PDFs, navegação e poderes individuais, além de: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
 
 A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto. O usuário relatou integração funcional em uma homologação criada pelo Sites; a implementação desse site não foi trazida para esta branch nem verificada diretamente. Ao sincronizar as correções, preservar o helper real e os bindings existentes dessa homologação.
 
@@ -78,4 +78,12 @@ A criação de solicitação permanece validada no servidor, mas o botão deixa 
 
 A pedido do usuário, o administrador anterior passa a ser o cargo **Admin**, com todas as funções e obras atuais/futuras. Vem apenas de `security_admins`, concedido explicitamente, nunca do nome, do primeiro acesso ou do login. Admin mantém etapas, limites, orçamento, autoria e concorrência. Não pode ser restringido por edição de cargo ou exceção; suspender bloqueia a conta, preservada a proteção do último Admin.
 
-Migração `0004_user_powers.sql` adiciona exceções por usuário/obra/ação. Cargo fornece a base; Permitir acrescenta, Bloquear remove mesmo com vários cargos, Seguir cargo remove a exceção. Remover acesso à obra remove suas exceções. Servidor carrega obras, cargos, exceções e revisão em um batch consistente e confere a revisão no commit. A interface mostra cargo atual e resultado efetivo e separa Usuários, Poderes por cargo, Obras e Histórico. Relatórios e destinatários usam os poderes efetivos; avisos incluem Admin. A atualização da homologação deve preservar autenticação oficial e D1/R2; não foi publicado o site da equipe.
+Migração `0004_user_powers.sql` adiciona exceções por usuário/obra/ação. Cargo fornece a base; Permitir acrescenta, Bloquear remove mesmo com vários cargos, Seguir cargo remove a exceção. Na 0.8, remover todos os cargos remove suas exceções; as obras são compartilhadas globalmente. Servidor carrega obras, cargos, exceções e revisão em um batch consistente e confere a revisão no commit. A interface mostra cargo atual e resultado efetivo e separa Usuários, Poderes por cargo, Obras e Histórico. Relatórios e destinatários usam os poderes efetivos; avisos incluem Admin. A atualização da homologação deve preservar autenticação oficial e D1/R2; não foi publicado o site da equipe.
+
+## Obras da empresa e cargos globais · 0.8
+
+A pedido do usuário, cadastrar a obra uma vez deve disponibilizá-la a todos. Usuários com cargo ativo veem todas as obras atuais e futuras; não há seleção de obra por usuário. O cargo pode ser atribuído antes da primeira obra. Admin continua total; login sem cargo e suspensão não recebem acesso. Poderes continuam controlando ações, com exceções individuais por obra. Estoque/orçamento e todos os vínculos operacionais permanecem específicos da obra.
+
+Nome da obra obrigatório, código opcional automático; nomes normalizados (acentos/maiúsculas/espaços) e códigos sem distinção de maiúsculas são conferidos no servidor para evitar duplicidade. Obra e cargos são atualizados em batch D1 com revisão de segurança, auditoria e idempotência.
+
+Migração `0005_company_works.sql`: cria `user_roles`, conserva a união dos cargos antigos ativos e preenche seu acesso a todas as obras. Amplia explicitamente o alcance dos cargos existentes, preservando dados/exceções/administradores. O marcador impede que uma reaplicação restaure cargos revogados. Aplicar apenas migrações pendentes, sem recriar D1/R2 ou autenticação. Atualização guiada em [PROMPT_SITES_0_8.md](PROMPT_SITES_0_8.md).

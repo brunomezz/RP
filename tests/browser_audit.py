@@ -13,6 +13,7 @@ with sync_playwright() as p:
         page=browser.new_context(viewport={'width':1440,'height':1000}).new_page();page.on('pageerror',lambda e:errors.append(str(e)));page.goto(url)
         page.locator('#dev-persona').select_option(persona);page.locator('#dev-login').click()
         expect(page.get_by_role('heading',name='Painel de suprimentos',exact=True)).to_be_visible();pages[persona]=page
+    for page in pages.values():page.locator('#work').select_option('ELYSIUM')
     a,e,s,d=[pages[k] for k in ['user1','user2','procurement','director']]
     def close(page):
         if page.locator('#dialog').evaluate('(d)=>d.open'):page.locator('.dialog-head [data-action="close"]').click()

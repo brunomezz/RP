@@ -43,7 +43,7 @@ test('poder individual permite só a pessoa/obra, bloqueio domina vários cargos
 test('exceções exigem obra liberada, ação conhecida, unicidade; Admin não aceita exceções',async()=>{
  const h=await createHarness();try{
   const a=await h.login('admin'),s=await get(h,'/api/security',a);
-  for(const overrides of [[null],[power('BLEND','create','allow')],[power('ELYSIUM','securityAdmin','allow')],[power('ELYSIUM','create','other')],[power('ELYSIUM','create','allow'),power('ELYSIUM','create','deny')]]){
+  for(const overrides of [[null],[power('NAO_CADASTRADA','create','allow')],[power('ELYSIUM','securityAdmin','allow')],[power('ELYSIUM','create','other')],[power('ELYSIUM','create','allow'),power('ELYSIUM','create','deny')]]){
    const r=await post(h,'/api/security',a,{...user('test-engineer',[link('ELYSIUM','engenharia')],overrides),revision:s.revision,reason:'Inválido'});assert.equal(r.status,400,await r.clone().text());
   }
   assert.equal((await post(h,'/api/security',a,{...user('test-engineer',[link('ELYSIUM','engenharia')],[power('ELYSIUM','create','deny')],true),revision:s.revision,reason:'Inválido'})).status,400);

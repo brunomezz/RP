@@ -1,17 +1,17 @@
-# Segurança e administração · versão 0.7
+# Segurança e administração · versão 0.8
 
 ## Como usar
 
 Abra **Administração → Segurança**. Há quatro abas:
 
-1. **Usuários:** escolha uma pessoa e responda “Qual é o cargo deste usuário?”: Engenharia, Almoxarifado, Suprimentos, Diretor de engenharia ou Admin. Marque as obras permitidas para cargos comuns. O nome mostra seu cargo atual; identificação da conta fica em detalhes para distinguir nomes iguais. A pessoa entra uma vez antes de aparecer na lista. Informe motivo e Salvar usuário.
+1. **Usuários:** escolha uma pessoa e responda “Qual é o cargo deste usuário?”: Engenharia, Almoxarifado, Suprimentos, Diretor de engenharia ou Admin. O cargo vale para todas as obras atuais e futuras, sem marcar obras por pessoa. O nome mostra seu cargo atual; identificação da conta fica em detalhes para distinguir nomes iguais. A pessoa entra uma vez antes de aparecer na lista. Informe motivo e Salvar usuário.
 2. **Poderes por cargo:** escolha o cargo e marque as ações padrão para todos com esse cargo. Admin é fixo, com todos os poderes.
-3. **Obras:** consulte/cadastre obras. Começam com Despesa não prevista; orçamento real continua com o procedimento de IMPLANTACAO_SITES.md.
+3. **Obras:** cadastre uma única vez para a empresa, informando o nome; código opcional, gerado automaticamente. Todos com cargo ativo recebem acesso. Nomes/códigos repetidos são recusados. Começam com Despesa não prevista; orçamento real continua com o procedimento de IMPLANTACAO_SITES.md.
 4. **Histórico:** autor autenticado, data/hora, motivo e antes/depois. Mostra as 100 alterações mais recentes; anteriores permanecem no banco.
 
-Na ficha de Usuários, abra **Personalizar poderes deste usuário** e escolha a obra. Cada ação tem **Seguir cargo**, **Permitir** ou **Bloquear** e mostra Permitido/Bloqueado ao lado. Alterar só a pessoa não muda o cargo dos colegas. Seguir cargo acompanha mudanças futuras do padrão. Bloquear prevalece sobre todos os cargos da pessoa nessa obra. O botão Usar somente os poderes do cargo remove as exceções da obra selecionada. Sem vínculo, exceções não concedem acesso à obra. Ao retirar uma obra, suas exceções são removidas.
+Na ficha de Usuários, abra **Personalizar poderes deste usuário** e escolha a obra. Cada ação tem **Seguir cargo**, **Permitir** ou **Bloquear** e mostra Permitido/Bloqueado ao lado. Alterar só a pessoa não muda o cargo dos colegas. Seguir cargo acompanha mudanças futuras do padrão. Bloquear prevalece sobre todos os cargos da pessoa nessa obra. O botão Usar somente os poderes do cargo remove as exceções da obra selecionada. Sem cargo, exceções não concedem acesso ao ERP. Ao retirar todos os cargos da pessoa, suas exceções são removidas.
 
-Para cargos diferentes entre obras ou vínculos antigos com vários cargos, o modo Definir por obra / manter vários cargos preserva os vínculos. Escolher um cargo padrão substitui os cargos das obras marcadas quando salvar. A seleção de cargo e obras não salva automaticamente.
+O cargo é global. Use Mais de um cargo se a pessoa acumular funções; todos valem em todas as obras. Sem cargo — acesso pendente retira seu acesso operacional. A escolha não salva automaticamente: informe o motivo e salve. É possível atribuir cargo antes de existir qualquer obra.
 
 **Admin tem acesso total** a todas as obras atuais e futuras, todos os poderes operacionais e Segurança. É global, sem necessidade de marcar cada obra. Os administradores já explicitamente concedidos passam a representar esse cargo na 0.7. Nenhuma pessoa comum é promovida pela migração. Não é possível bloquear um poder de Admin: para restringir, selecione outro cargo. Suspensão bloqueia também Admin, exceto quando deixaria a empresa sem Admin ativo.
 
@@ -21,7 +21,7 @@ Todos continuam respeitando etapas, orçamento, justificativa, escolha de fornec
 
 A migração não promove o primeiro visitante e não transforma automaticamente um diretor em administrador. O primeiro administrador é escolhido explicitamente pelo responsável pelo ambiente:
 
-1. Aplicar as migrações 0001, 0002, 0003 e `0004_user_powers.sql`, em ordem no D1 de homologação, pelo mecanismo de migrações do starter. Em banco existente, aplicar apenas as migrações ainda pendentes. Não resetar dados.
+1. Aplicar as migrações 0001, 0002, 0003, 0004 e `0005_company_works.sql`, em ordem no D1 de homologação, pelo mecanismo de migrações do starter. Em banco existente, aplicar apenas as migrações ainda pendentes. Não resetar dados.
 2. A pessoa escolhida entra com o login oficial. A tela de acesso pendente exibe seu identificador; `/api/identity` retorna somente a identidade da própria sessão. Esse acesso registra nome/identificador para a administração, sem conceder poder algum.
 3. O operador do Sites gera SQL com `node scripts/bootstrap-admin.mjs IDENTIFICADOR_DA_SESSAO > /tmp/fes-admin.sql`, revisa e executa no D1 correto, com a aplicação sem escritas durante a configuração inicial. O identificador é o ID estável reconhecido pelo helper oficial, não um e-mail arbitrário.
 4. O SQL só concede o primeiro acesso administrativo se a identidade já for conhecida, estiver ativa e ainda não houver administrador. Ele não conecta ao servidor e não escolhe o usuário. Conferir o SELECT final. A concessão inicial fica no histórico como **Configuração inicial via D1**, identificando que ocorreu pelo operador do ambiente, fora de uma sessão administrativa do ERP.
@@ -31,7 +31,7 @@ Não são necessários novos segredos ou senhas do ERP. A autenticação continu
 
 ## Banco, API e integridade
 
-`0002_security.sql` acrescenta `security_users`, `security_admins`, `role_permissions`, `security_meta`, `security_audit`, `security_operations` e um marcador para inicializar os poderes uma única vez. `0004_user_powers.sql` cria `user_permissions` por pessoa/obra/ação com efeito allow/deny. Os vínculos `memberships` existentes são preservados. Admin é representado por `security_admins`; não se grava um vínculo Admin por obra, nem uma lista editável de poderes dele. Reaplicar a migração não restaura poderes removidos; usar o controle de migrações do starter para executá-la uma vez por ambiente.
+`0002_security.sql` acrescenta `security_users`, `security_admins`, `role_permissions`, `security_meta`, `security_audit`, `security_operations` e um marcador para inicializar os poderes uma única vez. `0004_user_powers.sql` cria `user_permissions` por pessoa/obra/ação com efeito allow/deny. `0005_company_works.sql` cria `user_roles` como cargos globais e converte a união dos cargos ativos antigos. `memberships` passa a ser uma projeção de cada cargo para todas as obras, mantida atomicamente pelo backend. Isso amplia o acesso dos cargos antigos às demais obras; não copia nem altera registros operacionais. Admin é representado por `security_admins`; não se grava um vínculo Admin por obra, nem uma lista editável de poderes dele. Reaplicar a migração não restaura poderes removidos; usar o controle de migrações do starter para executá-la uma vez por ambiente.
 
 - `/api/identity`: reconhece/cadastra a identidade vinda exclusivamente do helper autenticado. Login posterior não remove suspensão nem atribui cargo.
 - `/api/session` e `/api/state`: retornam os cargos/poderes atuais e indicam se a pessoa é administradora. O frontend usa essas informações para os controles. O servidor consulta o banco novamente a cada requisição.
@@ -46,7 +46,7 @@ A concessão/revogação alcança as próximas chamadas ao servidor. A interface
 
 ## Mensagens de acesso e estabilidade
 
-A interface diferencia **Login necessário**, **Acesso ao ERP pendente**, **Acesso suspenso**, **Configuração pendente** e **Servidor indisponível**. Um usuário sem vínculo não recebe uma mensagem de conexão em andamento. Migrações/bindings ausentes orientam concluir a configuração, sem exibir erro SQL.
+A interface diferencia **Login necessário**, **Acesso ao ERP pendente**, **Acesso suspenso**, **Configuração pendente** e **Servidor indisponível**. Um usuário sem cargo não recebe uma mensagem de conexão em andamento. Migrações/bindings ausentes orientam concluir a configuração, sem exibir erro SQL.
 
 Chamadas têm tempo limite de 20 segundos. Em falha ou sessão encerrada, a pessoa pode tentar novamente; o app não atribui papéis automaticamente nem repete gravações silenciosamente. A chave idempotente é preservada para a repetição do mesmo comando quando a resposta não chegou. Downloads passam pelo mesmo tratamento de sessão/tempo limite.
 
@@ -66,6 +66,6 @@ Documentos e relatórios enviados ficam no R2 privado; downloads passam pela ses
 
 ## API de exceções e testes 0.7
 
-`user` continua aceitando `admin: true` para atribuir Admin global; `memberships` contém somente os cargos operacionais por obra. O campo opcional `overrides` tem objetos `{workId, permission, effect}`, com effect allow/deny. Array vazio remove as exceções; omissão conserva as existentes nas obras mantidas, para compatibilidade. A API recusa obras sem vínculo, ações desconhecidas, duplicatas e exceções para Admin. O snapshot inclui `overrides`; a sessão inclui poderes efetivos, nunca identidade fornecida pelo navegador.
+`user` aceita `admin: true` para Admin global ou `roles: ["engenharia"]` (até quatro cargos operacionais globais). `roles: []` remove os cargos. O antigo `memberships` continua aceito por compatibilidade, mas sua união de cargos é aplicada a todas as obras; não restringe obras por pessoa. O campo opcional `overrides` tem objetos `{workId, permission, effect}`, com effect allow/deny. Array vazio remove as exceções; omissão conserva as existentes nas obras mantidas, para compatibilidade. A API recusa obras inexistentes ou exceções para pessoa sem cargo, ações desconhecidas, duplicatas e exceções para Admin. O snapshot inclui `overrides`; a sessão inclui poderes efetivos, nunca identidade fornecida pelo navegador.
 
-Cinco testes em `tests/integration/user-powers.test.mjs` verificam Admin global/futuro, etapas, bloqueio de autopromoção/redução, exceções por pessoa/obra, prioridade de bloqueio com vários cargos, herança, validação, auditoria, revogação durante commit, reinício/migração, remoção de obra e destinatários de relatório. `tests/browser_user_powers.py` verifica o mesmo uso básico pela interface real local. A migração ausente apresenta Configuração pendente. Nenhuma alteração foi aplicada ao site remoto nesta tarefa.
+Cinco testes em `tests/integration/user-powers.test.mjs` verificam Admin global/futuro, etapas, bloqueio de autopromoção/redução, exceções por pessoa/obra, prioridade de bloqueio com vários cargos, herança, validação, auditoria, revogação durante commit, reinício/migração, remoção de cargos e destinatários de relatório. `tests/browser_user_powers.py` verifica o mesmo uso básico pela interface real local. A migração ausente apresenta Configuração pendente. Nenhuma alteração foi aplicada ao site remoto nesta tarefa.

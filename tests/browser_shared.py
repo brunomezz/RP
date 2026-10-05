@@ -21,6 +21,7 @@ with sync_playwright() as p:
     a.reload();expect(a.locator('#identity')).not_to_have_text('Conectando…')
     assert 'LOCAL-ONLY' not in a.request.get(url+'/api/state').text()
     a.get_by_role('button',name='Nova solicitação').click()
+    a.locator('#form-work').select_option('ELYSIUM')
     a.locator('[name="purpose"]').fill(purpose)
     a.locator('[data-field="qty"]').fill('10')
     a.locator('[data-field="neededDate"]').fill('2026-11-10')
@@ -78,7 +79,7 @@ with sync_playwright() as p:
     with e.expect_download() as down:e.get_by_role('button',name='nf-teste.txt',exact=False).click()
     assert Path(down.value.path()).read_bytes()==b'NF de teste'
     x.get_by_role('button',name='Atualizar',exact=True).click()
-    expect(x.locator('#content')).not_to_contain_text(purpose)
+    x.goto(url+'/#solicitacoes');expect(x.locator('#content')).to_contain_text(purpose)
     state=a.request.get(url+'/api/state').json()
     r=next(r for r in state['requests'] if r['id']==rid)
     assert {h['actorId'] for h in r['history']}=={'test-almox','test-engineer','test-procurement','test-director'}

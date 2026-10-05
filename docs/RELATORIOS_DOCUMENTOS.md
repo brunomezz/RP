@@ -56,3 +56,7 @@ Aplicar `migrations/0003_communication.sql` após 0001/0002, somente se pendente
 `pdf-lib` gera PDFs e `unpdf` extrai texto no backend Fetch/Workers. Dependências fixadas no lockfile; não dependem do servidor Node em produção. O bundle precisa ser validado contra limites de CPU/memória/size no runtime real do Sites. Não houve publicação nesta tarefa. Preserve a autenticação oficial já conectada em sua homologação.
 
 `npm run check`: domínio, integração D1/R2 e bundle. `tests/integration/communication.test.mjs`: 11 etapas, PDFs reais, filtros/revisão, isolamento, notificações/reinício, destinatários, idempotência e recuperação de confirmação, extração real, revisão, deduplicação e limites. `FES_TEST_MAIL=1 npm start` habilita o serviço fictício somente local, para `python tests/browser_communication.py`. Nunca usar esse fixture em produção. Os demais roteiros de navegador também continuam aplicáveis.
+
+## Obras compartilhadas · 0.8
+
+Todos com cargo ativo acessam as obras atuais e futuras. Relatórios, anexos e documentos continuam filtrados pela obra escolhida; vínculos de PDF/registro precisam corresponder à mesma obra. Exportação/envio/importação exigem o poder efetivo da pessoa nessa obra. Sem cargo ou com suspensão, não há acesso; login não atribui função. Destinatário de e-mail continua cadastrado, ativo e autorizado a exportar.
