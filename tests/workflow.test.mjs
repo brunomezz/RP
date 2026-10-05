@@ -11,3 +11,17 @@ test('serviço gera contrato e medição sem entrada de estoque',()=>{const s=se
 test('divisão de itens entre fornecedores emite pedidos sem duplicar quantidades',()=>{const s=seed(),r=s.requests[2];r.items.push({...r.items[0],qty:20,material:'cimento',name:'Cimento',unit:'saco'});r.quotes.forEach((q,i)=>q.prices.push(30+i));r.allocations=['q1','q2'];approveSuggested(s,r);assert.equal(s.orders.length,2);assert.equal(s.orders[0].items.length,1);assert.equal(s.orders[1].items.length,1);assert.equal(s.orders[0].items[0].qty,300);assert.equal(s.orders[1].items[0].qty,20);receive(s,s.orders[0],[300],'NF-1','');assert.equal(r.status,'ordered');receive(s,s.orders[1],[20],'NF-2','');assert.equal(r.status,'received');});
 test('sugestão de suprimentos não aprova fornecedor; diretor pode escolher alternativa',()=>{const s=seed(),r=s.requests[2];assert.equal(selectedQuote(r,0).id,'q1');assert.throws(()=>approveDirector(s,r),/diretor deve escolher/);r.decisions=['q2'];assert.throws(()=>approveDirector(s,r),/previsão/);r.items[0].estimatedArrival='2026-10-21';approveDirector(s,r);assert.equal(s.orders[0].supplier,'Casa das Tubulações (fictício)');assert.equal(s.orders[0].items[0].price,15);assert.equal(s.orders[0].items[0].estimatedArrival,'2026-10-21');assert.equal(s.orders[0].items[0].neededDate,'2026-10-23');assert.equal(s.orders[0].items[0].location,'12º pavimento');assert.equal(selectedQuote(r,0).id,'q1');});
 test('recebimento preserva metadados dos anexos por entrega',()=>{const s=seed(),r=s.requests[2];approveSuggested(s,r);const attachments=[{id:'file-1',name:'nf.pdf',size:20}];receive(s,s.orders[0],[1],'NF-1','',attachments);assert.deepEqual(s.orders[0].receipts[0].attachments,attachments);});
+
+test('recebimentos, saídas e medições fracionários encerram o saldo sem resíduos nem excesso',()=>{
+ const s=seed(),r=s.requests[2];r.items[0].qty=0.3;approveSuggested(s,r);s.movements=[];
+ const o=s.orders[0];receive(s,o,[0.1],'NF-A','');receive(s,o,[0.2],'NF-B','');
+ assert.equal(o.items[0].received,0.3);assert.equal(r.status,'received');assert.equal(balance(s,'ELYSIUM','tubo'),0.3);
+ withdraw(s,{work:'ELYSIUM',material:'tubo',qty:0.1,who:'João',service:'hidraulica'});
+ assert.equal(balance(s,'ELYSIUM','tubo'),0.2);
+ assert.throws(()=>withdraw(s,{work:'ELYSIUM',material:'tubo',qty:0.20001,who:'João',service:'hidraulica'}),/estoque/);
+ withdraw(s,{work:'ELYSIUM',material:'tubo',qty:0.2,who:'João',service:'hidraulica'});assert.equal(balance(s,'ELYSIUM','tubo'),0);
+ assert.throws(()=>receive(s,o,[0.00001],'NF-C',''),/saldo/);
+ const c={items:[{qty:0.3,measured:0,price:10}],measurements:[]};measure(c,[0.1],'Etapa A');measure(c,[0.2],'Etapa B');
+ assert.equal(c.items[0].measured,0.3);assert.throws(()=>measure(c,[0.00001],'Excesso'),/saldo/);
+ const small={movements:[{work:'A',material:'M',qty:3e-8,kind:'in'}]};withdraw(small,{work:'A',material:'M',qty:1e-8,who:'João',service:'S'});withdraw(small,{work:'A',material:'M',qty:2e-8,who:'João',service:'S'});assert.equal(balance(small,'A','M'),0);
+});

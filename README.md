@@ -10,6 +10,7 @@ Esta branch implementa registros compartilhados, permissões no servidor, histó
 - Backend Fetch/Workers em `hosting/worker.mjs` e `shared/api.mjs`, sem servidor Node em produção. Pode ser chamado pelas rotas do starter com os bindings D1/R2 e a identidade autenticada pelo helper oficial.
 - **DB**: D1/SQLite persistente. Obras e funções por identidade em `memberships`; estado operacional em `erp_state`; operações idempotentes, auditoria e metadados de arquivos em tabelas próprias.
 - **BUCKET**: R2 privado. Upload/download passam pelo backend; o cliente não recebe acesso direto ao bucket. Até **10 MiB (10 × 1024² bytes)** por arquivo, preservando o limite anterior.
+- A interface distingue **Login necessário** (401), **Acesso ao ERP pendente** (403) e **Servidor indisponível** (falha de rede/serviço). Login reconhecido sem função não fica em “Conectando…”. **Verificar acesso** consulta novamente as permissões sem recarregar a página; nenhum acesso é concedido automaticamente.
 - **Sign in with ChatGPT**: autentica a pessoa; não atribui funções do ERP. A API consulta funções e obras no D1 a cada requisição. Sem cadastro interno, retorna 403.
 - Exemplos fictícios e a versão offline estão em `prototype/`. O banco de produção começa sem solicitações, pedidos, contratos, estoque, materiais ou usuários de teste. Nenhum dado antigo do navegador é enviado, alterado ou removido.
 
@@ -28,7 +29,7 @@ npm start
 `npm start` executa **somente desenvolvimento**, em `127.0.0.1:3010`, usando Miniflare/workerd, D1 local persistente e R2 local. A faixa “DESENVOLVIMENTO LOCAL” permite trocar entre identidades fictícias de teste. Esse mecanismo não integra o build do Sites. `PORT` altera a porta; `FES_DEV_DATA_DIR` escolhe um diretório isolado de dados, padrão `.dev-data/` (ignorado pelo Git). Reiniciar o processo conserva os dados desse diretório; apagá-lo apaga apenas o ambiente local. Não usar esse servidor como login ou hospedagem de produção.
 
 ```sh
-npm test                   # 13 testes de domínio/filtros
+npm test                   # 14 testes de domínio/filtros
 npm run test:integration   # 9 testes D1/R2, autenticação de teste e concorrência
 npm run build:sites        # bundle Fetch, sem publicação
 npm run demo               # HTML offline separado, somente exemplos locais
@@ -38,15 +39,19 @@ Teste opcional de navegador, com o servidor de desenvolvimento ativo, Python, Pl
 
 ```sh
 python tests/browser_shared.py
+python tests/browser_access.py
+python tests/browser_audit.py
 ```
 
-`FES_CHROMIUM` indica o executável, padrão `/usr/bin/chromium`. Os resultados e seu alcance estão em [docs/TESTES_COMPARTILHADOS.md](docs/TESTES_COMPARTILHADOS.md).
+`FES_CHROMIUM` indica o executável, padrão `/usr/bin/chromium`. A auditoria funcional, correções e sugestões por setor estão em [docs/AUDITORIA_FUNCIONAL.md](docs/AUDITORIA_FUNCIONAL.md). Os resultados e seu alcance estão em [docs/TESTES_COMPARTILHADOS.md](docs/TESTES_COMPARTILHADOS.md).
 
 ## Implantar posteriormente no Sites
 
 Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 
-Faltam o exemplo oficial de `.openai/hosting.json`, o import/assinatura do helper `requireChatGPTUser()`, e acesso à homologação do Sites para provisionar e verificar os recursos e sessões reais. Até então, o adapter de produção bloqueia acesso. Nenhum segredo deve ser enviado pelo chat ou colocado no código, no manifesto ou no GitHub.
+O usuário informou que uma homologação foi conectada pelo Sites. Essa adaptação não está nesta branch e não foi acessada nesta auditoria. Ao trazer as correções, preserve o helper real de autenticação e os recursos já configurados; não substitua essa integração pelo adapter pendente deste repositório.
+
+Para configurar outro ambiente diretamente desta branch, faltam o exemplo oficial de `.openai/hosting.json`, o import/assinatura do helper `requireChatGPTUser()`, e acesso à homologação do Sites para provisionar e verificar os recursos e sessões reais. Até então, o adapter de produção bloqueia acesso. Nenhum segredo deve ser enviado pelo chat ou colocado no código, no manifesto ou no GitHub.
 
 ## Integridade e limites
 

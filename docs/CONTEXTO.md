@@ -30,11 +30,19 @@ Backend Fetch/Workers para Sites com D1 (`DB`), R2 privado (`BUCKET`) e Sign in 
 
 Comandos aceitam campos específicos e revisão esperada; rejeitam ações fora de função/obra/etapa. Um batch D1 transacional compara a revisão e grava operação, auditoria e finalização de anexos junto ao estado. A mesma chave idempotente não executa novamente; revisão desatualizada retorna 409. Identidade e horário do histórico vêm do servidor. Arquivos reservados são enviados ao R2 e ficam acessíveis somente depois de vinculados por comando autorizado.
 
+## Correções da auditoria funcional
+
+Login, acesso interno e indisponibilidade são apresentados separadamente; um login válido sem função/obra mostra **Acesso ao ERP pendente**, identifica a pessoa e oferece **Verificar acesso**. Os dados carregados são descartados quando a sessão ou o acesso deixam de ser válidos. A API continua exigindo as permissões existentes.
+
+Recebimentos, medições e saldo de estoque usam soma decimal para evitar resíduos de operações como 0,1 + 0,2. Valores anteriormente gravados com resíduos não são alterados automaticamente. Texto da unidade de material e cabeçalhos das tabelas é escapado antes da exibição. Catálogo vazio apresenta uma orientação na saída de estoque. Formulários apenas para consulta permitem fechar/cancelar. As movimentações exibem separadamente o retirante e o operador autenticado, inclusive no CSV.
+
+Escopo, evidências e recomendações por setor: [AUDITORIA_FUNCIONAL.md](AUDITORIA_FUNCIONAL.md).
+
 ## Verificação e configuração pendente
 
-13 testes de domínio e 9 testes de integração passaram. Teste Chromium com cinco sessões isoladas passou. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
+14 testes de domínio e 9 testes de integração passaram. Três roteiros Chromium passaram: compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
 
-A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto.
+A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto. O usuário relatou integração funcional em uma homologação criada pelo Sites; a implementação desse site não foi trazida para esta branch nem verificada diretamente. Ao sincronizar as correções, preservar o helper real e os bindings existentes dessa homologação.
 
 Não incluir credenciais no código/GitHub. Se o starter exigir segredos, preenchê-los somente nas configurações seguras do Sites. Configurações locais e bancos de teste são ignorados pelo Git. Preservar bindings de banco/bucket nas futuras publicações para manter os dados; não recriar nem resetar recursos em deploy.
 
