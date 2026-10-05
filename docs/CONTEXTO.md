@@ -107,3 +107,15 @@ A pedido do usuário, a versão de implantação da empresa foca primeiro em **S
 - Sem migração SQL: os novos campos ficam no estado operacional existente. Nenhum dado é reescrito automaticamente.
 
 Próximas etapas do mesmo escopo: nota fiscal de compra como documento próprio (com devolução e frete), reprogramação e cancelamento de saldos, reservas, transferências entre obras, devolução ao estoque, inicialização de saldo, locais e fechamento. Antes da nota fiscal, normalizar estoque e cadastros em tabelas próprias no D1 (limite atual de 1 MiB do estado único).
+
+## Estoque completo e importação de cadastros · 0.10
+
+- **Armazenamento**: insumos, fornecedores, movimentos, reservas, locais e fechamentos saem do estado único e passam a ter uma linha por registro em tabelas próprias (`migrations/0006_stock_tables.sql`, `shared/state-store.mjs`). Deixam de contar no limite de 1 MiB. A revisão global e a gravação atômica continuam iguais. A migração move os registros existentes uma única vez, na ordem original, e dá identificador a registros antigos sem `id`.
+- **Locais de estoque** por obra. Sem locais, a obra funciona como um único almoxarifado. Com locais, entradas (recebimento, saldo inicial, devolução, transferência recebida) exigem o local, e saídas conferem o saldo do local escolhido. Local com saldo não pode ser desativado.
+- **Reservas**: separam quantidade para um serviço. O disponível desconta reservas ativas. A saída pode baixar a reserva. A liberação exige motivo.
+- **Transferência** entre obras ou entre locais da mesma obra: gera saída na origem e entrada no destino com o mesmo identificador. Exige o poder nas duas obras.
+- **Devolução ao estoque**: entrada com motivo e quem devolveu, opcionalmente vinculada à saída de origem (não pode devolver mais que o retirado).
+- **Saldo inicial** (implantação): um por insumo, obra e local, com data não futura.
+- **Fechamento de período**: bloqueia movimentos na data fechada ou antes e guarda o saldo de cada insumo na data. Reabrir o último fechamento exige motivo.
+- **Importação por planilha** (CSV, inclusive exportado do Sienge em Windows-1252): insumos (código, descrição, unidade, categoria/grupo, detalhe, marca) e fornecedores (nome, razão social, CNPJ/CPF, endereço, cidade, UF, contato, e-mail, telefone, pagamento). Prévia com novos, atualizados e ignorados e o motivo de cada linha ignorada; o servidor refaz a mesma conferência. Atualiza pelo código ou CNPJ e, na falta, pelo nome.
+- **Poderes novos**: Almoxarifado recebe reservar, transferir, devolução, saldo inicial e locais; Engenharia recebe reservar; Diretor recebe fechar/reabrir períodos. Admin tem todos. Ajustáveis na aba Segurança.

@@ -1,4 +1,4 @@
-# ERP Fasolo e Simon · 0.9.0 em desenvolvimento
+# ERP Fasolo e Simon · 0.10.0 em desenvolvimento
 
 Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
@@ -6,7 +6,7 @@ Esta branch implementa registros compartilhados, administração de usuários/ca
 
 ## Testar no Windows sem criar um site
 
-O pacote pessoal está em [Downloads de testes](https://github.com/brunomezz/RP/releases). Baixe o ZIP **RP-Testes-0.9.0-Windows-x64.zip**, use **Extrair tudo** e abra **RP-Testes.exe**. O GitHub gera e testa o pacote no Windows antes de disponibilizá-lo; se a release ainda não existir, confira [Pacote pessoal Windows](https://github.com/brunomezz/RP/actions/workflows/personal-windows.yml).
+O pacote pessoal está em [Downloads de testes](https://github.com/brunomezz/RP/releases). Baixe o ZIP **RP-Testes-0.10.0-Windows-x64.zip**, use **Extrair tudo** e abra **RP-Testes.exe**. O GitHub gera e testa o pacote no Windows antes de disponibilizá-lo; se a release ainda não existir, confira [Pacote pessoal Windows](https://github.com/brunomezz/RP/actions/workflows/personal-windows.yml).
 
 Sem instalar Node.js, sem comandos e sem login do ChatGPT. Abre no navegador como Admin; a faixa de teste permite usar outro cargo. Funciona sem internet após o download. Dados apenas neste computador; e-mails são simulados e não são entregues. Mantenha a janela do programa aberta e use Encerrar ao terminar.
 

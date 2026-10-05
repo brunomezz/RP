@@ -7,8 +7,10 @@ export const capabilities = {
   quote: 'Cadastrar propostas', suggest: 'Sugerir fornecedores', send: 'Enviar contratação ao diretor',
   director: 'Decidir fornecedores e aprovar contratação', rejectDirector: 'Devolver a suprimentos',
   arrival: 'Alterar previsão de chegada', receive: 'Registrar recebimentos', withdraw: 'Registrar saídas de estoque',
-  measure: 'Registrar medições', material: 'Cadastrar materiais', supplier: 'Cadastrar e editar fornecedores',
+  measure: 'Registrar medições', material: 'Cadastrar insumos', supplier: 'Cadastrar e editar fornecedores',
   quoteFiles: 'Adicionar anexos a propostas existentes', orderFiles: 'Adicionar anexos aos pedidos',
+  reserve: 'Reservar e liberar estoque', transfer: 'Transferir estoque entre obras', stockReturn: 'Registrar devolução ao estoque',
+  stockInit: 'Lançar saldo inicial de estoque', location: 'Cadastrar locais de estoque', stockClose: 'Fechar e reabrir períodos de estoque',
 };
 export function can(actor, action, work) {
   return actor?.access?.some(a => (!work || a.work_id === work) && a.permissions?.includes(action)) || false;

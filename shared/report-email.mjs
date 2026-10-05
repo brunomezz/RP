@@ -1,3 +1,4 @@
+import { loadState } from './state-store.mjs';
 import { allow, loadActor, securityError } from './security.mjs';
 import { buildReport, reportStages } from './report-data.mjs';
 import { reportPDF } from './report-pdf.mjs';
@@ -16,9 +17,8 @@ async function recipient(db,id,work){
 }
 async function reportContext(db,actor,params){
  const workId=params.work;allow(actor,workId,'reportsExport');const work=await db.prepare('SELECT id,name FROM works WHERE id=?').bind(workId).first();
- const row=await db.prepare('SELECT data,revision FROM erp_state WHERE id=1').first();
+ const {row,state}=await loadState(db);
  if(params.revision!==undefined&&Number(params.revision)!==row.revision)securityError(409,'Os registros mudaram após a prévia. Gere o relatório novamente.');
- const state=JSON.parse(row.data);
  return {...buildReport(state,work,{stage:params.stage,from:params.from||'',to:params.to||'',query:String(params.query||'').slice(0,300)},actor),revision:row.revision};
 }
 function jobInfo(job){const {id,work_id,stage,recipient_id,recipient_email,status,provider_id,last_error,created_at,last_attempt,lease_until}=job;return {id,work_id,stage,recipient_id,recipient_email,status,provider_id,last_error,created_at,last_attempt,lease_until};}

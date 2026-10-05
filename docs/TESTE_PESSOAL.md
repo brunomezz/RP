@@ -1,9 +1,9 @@
-# Teste pessoal · Windows · 0.9.0
+# Teste pessoal · Windows · 0.10.0
 
 ## Abrir sem comandos
 
 1. Abra [Downloads do RP](https://github.com/brunomezz/RP/releases).
-2. Baixe **RP-Testes-0.9.0-Windows-x64.zip** (não Source code).
+2. Baixe **RP-Testes-0.10.0-Windows-x64.zip** (não Source code).
 3. Clique com o botão direito no ZIP e escolha **Extrair tudo**.
 4. Dentro da pasta extraída, dê dois cliques em **RP-Testes.exe**.
 5. O ERP abre no navegador como Admin. Escolha outro cargo na faixa de teste e clique **Usar cargo** para experimentar seu acesso.
