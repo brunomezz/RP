@@ -134,9 +134,6 @@ export async function createHarness(persistPath, options={}) {
   const row = await db.prepare("SELECT data FROM erp_state WHERE id=1").first(),
     state = JSON.parse(row.data);
   if (!state.budgetServices) {
-    state.catalog = [
-      { id: "bloco", name: "Bloco · catálogo de teste", unit: "un" },
-    ];
     state.budgetServices = {
       ELYSIUM: [
         { id: "alvenaria", name: "Alvenaria · teste", budget: 10000 },
@@ -147,6 +144,10 @@ export async function createHarness(persistPath, options={}) {
     await db
       .prepare("UPDATE erp_state SET data=? WHERE id=1")
       .bind(JSON.stringify(state))
+      .run();
+    await db
+      .prepare("INSERT OR IGNORE INTO catalog_items(id,data) VALUES('bloco',?)")
+      .bind(JSON.stringify({ id: "bloco", name: "Bloco · catálogo de teste", unit: "un" }))
       .run();
   }
   return {

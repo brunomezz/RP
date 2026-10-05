@@ -1,3 +1,4 @@
+import { loadState } from './state-store.mjs';
 import { allow, loadActor, securityError } from './security.mjs';
 import { extractPDF, importSuggestions } from './pdf-import.mjs';
 const LIMIT=10*1024*1024;
@@ -15,7 +16,7 @@ export async function documentRoutes(request,env,actor,{json,readLimited,respons
  if(path==='/api/documents'&&request.method==='POST'){
   const work=url.searchParams.get('work'),name=url.searchParams.get('name'),kind=url.searchParams.get('kind')||null,recordId=url.searchParams.get('recordId')||null;
   allow(actor,work,'documentsImport');if(!name||name.length>255||!name.toLowerCase().endsWith('.pdf'))securityError(400,'Informe um nome de arquivo PDF.');
-  const state=JSON.parse((await env.DB.prepare('SELECT data FROM erp_state WHERE id=1').first()).data);documentTarget(state,work,kind,recordId);
+  const state=(await loadState(env.DB)).state;documentTarget(state,work,kind,recordId);
   const bytes=await readLimited(request,LIMIT);if(!bytes.length)securityError(400,'O PDF está vazio.');
   const hash=Array.from(new Uint8Array(await crypto.subtle.digest('SHA-256',bytes))).map(b=>b.toString(16).padStart(2,'0')).join('');
   const previous=await env.DB.prepare('SELECT id FROM documents WHERE work_id=? AND sha256=?').bind(work,hash).first();if(previous)return response({id:previous.id,duplicate:true});
@@ -37,7 +38,7 @@ export async function documentRoutes(request,env,actor,{json,readLimited,respons
   const object=await env.BUCKET.get('documents/'+doc.id);if(!object)securityError(404,'PDF indisponível.');
   return new Response(object.body,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename*=UTF-8''${encodeURIComponent(doc.name)}`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff','Content-Security-Policy':"sandbox; default-src 'none'"}});
  }
- const state=JSON.parse((await env.DB.prepare('SELECT data FROM erp_state WHERE id=1').first()).data);
+ const state=(await loadState(env.DB)).state;
  if(request.method==='GET'&&!match[2]){const imported=await env.DB.prepare('SELECT * FROM document_imports WHERE document_id=?').bind(doc.id).first();return response({...doc,imported,suggestions:importSuggestions(doc.extracted_text,state)});}
  if(request.method==='POST'&&match[2]==='/link'){
   allow(actor,doc.work_id,'documentsImport');const p=await json(request);documentTarget(state,doc.work_id,p.kind,p.recordId);if(!p.kind)securityError(400,'Selecione um registro.');

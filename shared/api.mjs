@@ -3,6 +3,7 @@ import { documentRoutes } from './documents.mjs';
 import { notificationRoutes, operationNotice } from './notifications.mjs';
 import { loadActor, registerIdentity, allow, securitySnapshot, changeSecurity } from './security.mjs';
 import { capabilities, can } from './permissions.mjs';
+import { loadState, snapshot, aggregateData, rowWrites } from './state-store.mjs';
 import {
   approveEngineering,
   sendDirector,
@@ -11,6 +12,16 @@ import {
   receive,
   withdraw,
   measure,
+  reserve,
+  release,
+  transfer,
+  returnToStock,
+  initStock,
+  closePeriod,
+  reopenPeriod,
+  closedThrough,
+  planImport,
+  applyImport,
   normalizeText,
   validTaxId,
   formatTaxId,
@@ -33,9 +44,31 @@ const labels = {
   supplier: "Fornecedor atualizado",
   quoteFiles: "Anexos da proposta registrados",
   orderFiles: "Anexos do pedido registrados",
+  reserve: "Reserva de estoque",
+  release: "Reserva liberada",
+  transfer: "Transferência de estoque",
+  stockReturn: "Devolução ao estoque",
+  stockInit: "Saldo inicial de estoque",
+  location: "Local de estoque salvo",
+  stockClose: "Período de estoque fechado",
+  stockReopen: "Período de estoque reaberto",
+  import: "Importação de cadastros",
 };
+const workActions = { create: "create", withdraw: "withdraw", material: "material", supplier: "supplier", reserve: "reserve", release: "reserve", transfer: "transfer", stockReturn: "stockReturn", stockInit: "stockInit", location: "location", stockClose: "stockClose", stockReopen: "stockClose" };
 const MAX_FILE = 10 * 1024 * 1024,
   MAX_JSON = 256 * 1024;
+function guard(run) {
+  try {
+    return run();
+  } catch (e) {
+    fail(e.status || 400, e.message);
+  }
+}
+function balanceAtLocation(state, work, location) {
+  return state.movements
+    .filter((m) => m.work === work && m.location === location)
+    .reduce((s, m) => s + (m.kind === "in" ? m.qty : -m.qty), 0) > 1e-9;
+}
 function fail(status, message) {
   throw Object.assign(new Error(message), { status });
 }
@@ -119,9 +152,6 @@ async function readLimited(request, max) {
   }
   return bytes;
 }
-function readState(row) {
-  return JSON.parse(row.data);
-}
 function projection(state, actor) {
   const visible = new Set(actor.access.map((a) => a.work_id));
   return {
@@ -132,6 +162,9 @@ function projection(state, actor) {
     orders: state.orders.filter((r) => visible.has(r.work)),
     contracts: state.contracts.filter((r) => visible.has(r.work)),
     movements: state.movements.filter((r) => visible.has(r.work)),
+    reservations: state.reservations.filter((r) => visible.has(r.work)),
+    locations: state.locations.filter((r) => visible.has(r.work)),
+    closings: state.closings.filter((r) => visible.has(r.work)),
     budgetServices: Object.fromEntries(
       Object.entries(state.budgetServices || {}).filter(([w]) =>
         visible.has(w),
@@ -177,6 +210,25 @@ function items(state, work, input) {
       service: service(state, work, i.service, false),
     };
   });
+}
+function stockLocation(state, work, value, incoming) {
+  const id = optional(value, 100);
+  const active = state.locations.filter((l) => l.work === work && l.active);
+  if (id && !active.some((l) => l.id === id))
+    fail(400, "Local de estoque inválido para a obra.");
+  if (incoming && !id && active.length) fail(400, "Informe o local de estoque.");
+  return id;
+}
+function catalogItem(state, id) {
+  if (!state.catalog.some((m) => m.id === id)) fail(400, "Material não cadastrado.");
+  return id;
+}
+function stateRevision(state, p) {
+  if (p.expectedStateRevision !== state._revision)
+    fail(409, "Estoque alterado. Atualize e confira.");
+}
+function today() {
+  return new Date().toISOString().slice(0, 10);
 }
 function sameNames(rows, name) {
   return rows.some((s) => normalizeText(s.name) === normalizeText(name));
@@ -239,8 +291,15 @@ async function apply(db, env, state, actor, p) {
     record,
     recordId,
     files = [];
-  if (["create", "withdraw", "material", "supplier"].includes(action)) {
-    allow(actor, work, action);
+  if (Object.hasOwn(workActions, action) || action === "import") {
+    if (action === "release") {
+      record = state.reservations.find((r) => r.id === p.reservationId);
+      if (!record) fail(404, "Reserva não encontrada.");
+      work = record.work;
+    }
+    requiredPermission = action === "import" ? (p.kind === "suppliers" ? "supplier" : "material") : workActions[action];
+    allow(actor, work, requiredPermission);
+    if (action === "release") record = null;
   } else {
     const kind = ["arrival", "receive", "orderFiles"].includes(action)
       ? "order"
@@ -429,6 +488,7 @@ async function apply(db, env, state, actor, p) {
         "order",
         record.id,
       );
+      const receiptLocation = stockLocation(state, work, p.location, true);
       receive(
         state,
         record,
@@ -437,23 +497,140 @@ async function apply(db, env, state, actor, p) {
         optional(p.note),
         files,
       );
+      if (receiptLocation) {
+        for (const m of state.movements.slice(movements)) m.location = receiptLocation;
+        record.receipts.at(-1).location = receiptLocation;
+      }
       record.receipts.at(-1).actorId = actor.id;
       record.receipts.at(-1).who = actor.name;
       break;
-    case "withdraw":
+    case "withdraw": {
       service(state, work, p.service);
-      if (!state.catalog.some((m) => m.id === p.material))
-        fail(400, "Material não cadastrado.");
-      if (p.expectedStateRevision !== state._revision)
-        fail(409, "Estoque alterado. Atualize e confira.");
-      withdraw(state, {
+      catalogItem(state, p.material);
+      stateRevision(state, p);
+      const reservation = p.reservationId
+        ? state.reservations.find((r) => r.id === p.reservationId)
+        : null;
+      if (p.reservationId && !reservation) fail(404, "Reserva não encontrada.");
+      try {
+        withdraw(state, {
+          work,
+          material: p.material,
+          qty: number(p.qty, "quantidade", true),
+          who: text(p.recipient, "retirante", 300),
+          service: p.service,
+          floor: optional(p.floor, 300),
+          location: stockLocation(state, work, p.location, false),
+          reservation,
+        });
+      } catch (e) {
+        fail(e.status || 400, e.message);
+      }
+      break;
+    }
+    case "reserve": {
+      catalogItem(state, p.material);
+      stateRevision(state, p);
+      if (p.service) service(state, work, p.service);
+      const r = guard(() => reserve(state, {
         work,
         material: p.material,
         qty: number(p.qty, "quantidade", true),
-        who: text(p.recipient, "retirante", 300),
-        service: p.service,
-        floor: optional(p.floor, 300),
+        location: stockLocation(state, work, p.location, false),
+        service: p.service || "",
+        neededDate: p.neededDate ? date(p.neededDate) : "",
+        note: optional(p.note, 500),
+        who: actor.name,
+      }));
+      r.actorId = actor.id;
+      recordId = result.id = r.id;
+      break;
+    }
+    case "release": {
+      const r = state.reservations.find((r) => r.id === p.reservationId);
+      reason = text(p.reason, "motivo");
+      guard(() => release(r, reason));
+      recordId = r.id;
+      break;
+    }
+    case "transfer": {
+      catalogItem(state, p.material);
+      stateRevision(state, p);
+      const toWork = text(p.toWork, "obra de destino", 100);
+      allow(actor, toWork, "transfer");
+      recordId = result.id = guard(() => transfer(state, {
+        work,
+        toWork,
+        material: p.material,
+        qty: number(p.qty, "quantidade", true),
+        location: stockLocation(state, work, p.location, false),
+        toLocation: stockLocation(state, toWork, p.toLocation, true),
+        note: optional(p.note, 500),
+        who: actor.name,
+      }));
+      break;
+    }
+    case "stockReturn":
+      catalogItem(state, p.material);
+      stateRevision(state, p);
+      reason = text(p.reason, "motivo");
+      guard(() => returnToStock(state, {
+        work,
+        material: p.material,
+        qty: number(p.qty, "quantidade", true),
+        who: text(p.who, "quem devolveu", 300),
+        reason,
+        location: stockLocation(state, work, p.location, true),
+        returnOf: optional(p.returnOf, 100),
+      }));
+      break;
+    case "stockInit": {
+      catalogItem(state, p.material);
+      stateRevision(state, p);
+      const day = date(p.date);
+      if (day > today()) fail(400, "O saldo inicial não pode ter data futura.");
+      guard(() => initStock(state, {
+        work,
+        material: p.material,
+        qty: number(p.qty, "quantidade", true),
+        date: day,
+        location: stockLocation(state, work, p.location, true),
+        note: optional(p.note, 500),
+        who: actor.name,
+      }));
+      break;
+    }
+    case "location": {
+      const name = text(p.name, "nome do local", 100);
+      const existing = p.id ? state.locations.find((l) => l.id === p.id && l.work === work) : null;
+      if (p.id && !existing) fail(404, "Local não encontrado.");
+      if (state.locations.some((l) => l.work === work && l.id !== existing?.id && normalizeText(l.name) === normalizeText(name)))
+        fail(409, "Já existe um local com este nome na obra.");
+      const active = p.active !== false;
+      if (existing && existing.active && !active && state.movements.some((m) => m.work === work && m.location === existing.id) && balanceAtLocation(state, work, existing.id))
+        fail(409, "Transfira o saldo antes de desativar o local.");
+      if (existing) Object.assign(existing, { name, active });
+      else state.locations.push({ id: "LOC-" + crypto.randomUUID(), work, name, active: true });
+      break;
+    }
+    case "stockClose": {
+      const through = date(p.through);
+      if (through > today()) fail(400, "Não é possível fechar uma data futura.");
+      recordId = result.id = guard(() => closePeriod(state, { work, through, note: optional(p.note, 500), who: actor.name })).id;
+      break;
+    }
+    case "import": {
+      if (!["materials", "suppliers"].includes(p.kind)) fail(400, "Tipo de importação inválido.");
+      const rows = list(p.rows, 500).map((r) => {
+        if (!r || typeof r !== "object" || Array.isArray(r)) fail(400, "Linha inválida.");
+        return Object.fromEntries(Object.entries(r).map(([k, v]) => [String(k).slice(0, 100), k === "line" ? Number(v) || 0 : String(v ?? "").slice(0, 1000)]));
       });
+      result = applyImport(state, p.kind, planImport(state, p.kind, rows));
+      break;
+    }
+    case "stockReopen":
+      reason = text(p.reason, "motivo");
+      recordId = guard(() => reopenPeriod(state, { work, reason, who: actor.name })).id;
       break;
     case "measure":
       measure(
@@ -569,6 +746,11 @@ async function apply(db, env, state, actor, p) {
     default:
       fail(400, "Ação inválida.");
   }
+  for (const m of state.movements.slice(movements)) {
+    const closed = closedThrough(state, m.work);
+    if (closed && m.at.slice(0, 10) <= closed)
+      fail(409, "Período de estoque fechado até " + closed.split("-").reverse().join("/") + ". Reabra o período para lançar movimentos nessa data.");
+  }
   const at = new Date().toISOString(),
     entry = {
       at,
@@ -625,8 +807,8 @@ async function command(db, env, actor, p, key) {
       allow(actor, saved.work, saved.permission || (p.action === "reject" ? "rejectDirector" : p.action));
       return saved.result;
     }
-    const row = await db.prepare("SELECT * FROM erp_state WHERE id=1").first(),
-      state = readState(row);
+    const { row, state } = await loadState(db),
+      before = snapshot(state);
     state._revision = row.revision;
     const latest = await db
       .prepare("SELECT * FROM operations WHERE actor_id=? AND key=?")
@@ -641,7 +823,7 @@ async function command(db, env, actor, p, key) {
     }
     const changed = await apply(db, env, state, actor, p);
     delete state._revision;
-    const data = JSON.stringify(state);
+    const data = aggregateData(state);
     if (new TextEncoder().encode(data).length > 1024 * 1024)
       fail(
         413,
@@ -689,6 +871,7 @@ async function command(db, env, actor, p, key) {
       batch.push(db.prepare("INSERT INTO document_imports(document_id,action,record_id,actor_id,created_at) SELECT ?,?,?,?,? FROM erp_state WHERE id=1 AND last_operation=?").bind(changed.sourceDocument.id,p.action,changed.recordId,actor.id,changed.at,operation));
       batch.push(db.prepare("UPDATE documents SET linked_kind='request',linked_record_id=? WHERE id=? AND EXISTS(SELECT 1 FROM erp_state WHERE id=1 AND last_operation=?)").bind(changed.recordId,changed.sourceDocument.id,operation));
     }
+    batch.push(...rowWrites(db, state, before, operation));
     batch.push(...operationNotice(db,actor,changed,operation,p.action,labels[p.action]));
     const result = await db.batch(batch);
     if (result[0].meta.changes === 1) return changed.result;
@@ -722,10 +905,9 @@ export function createERPHandler(requireUser, options = {}) {
       if (path === "/api/security" && request.method === "POST")
         return response(await changeSecurity(env.DB, actor, await json(request), request.headers.get("Idempotency-Key")));
       if (path === "/api/state" && request.method === "GET") {
-        const row = await env.DB.prepare(
-          "SELECT * FROM erp_state WHERE id=1",
-        ).first();
-        const state = projection(readState(row), actor);
+        const loaded = await loadState(env.DB),
+          row = loaded.row;
+        const state = projection(loaded.state, actor);
         return response({
           ...state,
           revision: row.revision,
@@ -766,10 +948,7 @@ export function createERPHandler(requireUser, options = {}) {
       }
       if (path === "/api/files" && request.method === "POST") {
         const p = await json(request),
-          row = await env.DB.prepare(
-            "SELECT * FROM erp_state WHERE id=1",
-          ).first(),
-          state = readState(row);
+          { state } = await loadState(env.DB);
         if (!["request", "order"].includes(p.targetKind))
           fail(400, "Destino de anexo inválido.");
         const record = find(state, p.targetKind, p.targetId);

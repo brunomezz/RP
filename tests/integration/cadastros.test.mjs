@@ -38,3 +38,17 @@ test('fornecedor: CNPJ conferido e formatado, endereço, UF e pagamento padrão'
   s=await snapshot(h,p);assert.equal(s.suppliers.find(x=>x.id===f.id).city,'Xanxerê');
  }finally{await h.close();}
 });
+test('importação de planilha: cria, atualiza, ignora inválidos e exige o poder do cadastro',async()=>{
+ const h=await createHarness();
+ try{
+  const p=await h.login('procurement'),a=await h.login('user1');
+  const rows=[{line:2,'Código':'','Descrição':'Areia média','Unidade':'m³','Grupo':'Agregados'},{line:3,'Código':'','Descrição':'Bloco · catálogo de teste','Unidade':'un','Marca':'Cerâmica X'},{line:4,'Descrição':'Sem unidade'}];
+  assert.equal((await command(h,a,{action:'import',kind:'materials',work:'ELYSIUM',rows})).status,403);
+  const r=await ok(h,p,{action:'import',kind:'materials',work:'ELYSIUM',rows});
+  assert.deepEqual([r.created,r.updated,r.skipped.map(s=>s.line)],[1,1,[4]]);
+  const s=await snapshot(h,p);assert.equal(s.catalog.find(m=>m.id==='bloco').brand,'Cerâmica X');assert.equal(s.catalog.find(m=>m.name==='Areia média').category,'Agregados');
+  const f=await ok(h,p,{action:'import',kind:'suppliers',work:'ELYSIUM',rows:[{line:2,'Nome fantasia':'Casa do Construtor','CNPJ':'11222333000181','UF':'sc'},{line:3,'Fornecedor':'Inválido','CNPJ':'1'}]});
+  assert.deepEqual([f.created,f.skipped.length],[1,1]);
+  assert.equal((await command(h,p,{action:'import',kind:'outro',work:'ELYSIUM',rows})).status,400);
+ }finally{await h.close();}
+});

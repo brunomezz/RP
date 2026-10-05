@@ -1,5 +1,5 @@
 export function operationNotice(db,actor,changed,operation,action,title){
- const pages={create:'aprovacoes',edit:'aprovacoes',engineering:'cotacoes',quote:'cotacoes',send:'aprovacoes',reject:'solicitacoes',director:'pedidos',arrival:'recebimentos',receive:'estoque',measure:'medicoes',withdraw:'movimentos'};
+ const pages={create:'aprovacoes',edit:'aprovacoes',engineering:'cotacoes',quote:'cotacoes',send:'aprovacoes',reject:'solicitacoes',director:'pedidos',arrival:'recebimentos',receive:'estoque',measure:'medicoes',withdraw:'movimentos',reserve:'reservas',transfer:'movimentos',stockClose:'fechamentos',stockReopen:'fechamentos'};
  if(!pages[action])return [];
  return [db.prepare(`INSERT OR IGNORE INTO notifications(id,user_id,work_id,record_id,page,title,message,created_at,event_key)
  SELECT DISTINCT ?||':'||u.id,u.id,?,?,?, ?,?,?,? FROM security_users u
