@@ -95,3 +95,15 @@ O usuário decidiu testar sozinho, sem ambiente online ou compartilhamento. `des
 Banco e anexos permanecem em `%LOCALAPPDATA%\FasoloSimon\RP-Testes\data` entre versões. O iniciador bloqueia dois processos sobre a mesma base, encerra o runtime e copia um backup antes de abrir dados com versão diferente. Não há reset automático, sincronização ou migração para o Sites. E-mail sempre usa o transporte simulado; uso pessoal offline após baixar/extrair.
 
 GitHub Actions compila no Windows x64, inclui Node 22.21.1 e dependências do lockfile, executa o smoke test pelo executável, gera ZIP/checksum e publica uma pré-release de teste. Release somente depois de testes aprovados; site da equipe e branch main permanecem intactos. Sem novos segredos do usuário. Detalhes em [TESTE_PESSOAL.md](TESTE_PESSOAL.md).
+
+## Suprimentos e Estoque · 0.9
+
+A pedido do usuário, a versão de implantação da empresa foca primeiro em **Suprimentos e Estoque**; contratos e medições evoluem nas versões seguintes. Referência: comparação com o menu de Suprimentos do Sienge da empresa.
+
+- Menu: grupo **Cadastros** passa a se chamar **Apoio** (Insumos, Fornecedores, Importar PDFs), como no Sienge.
+- **Insumos**: código (automático `INS-0001` ou informado, único), descrição, unidade, categoria, detalhe/especificação e marca. Edição pela tela; a unidade fica bloqueada depois que o insumo tem solicitação ou movimento. Registros anteriores mantêm a descrição da época. Materiais antigos sem código recebem o próximo código ao serem editados.
+- **Fornecedores**: razão social, CNPJ/CPF conferido pelos dígitos verificadores e gravado formatado, endereço, cidade, UF, pagamento padrão e observações. Um documento antigo inválido precisa ser corrigido na próxima edição.
+- **Consulta de estoque de insumos**: parâmetros insumo, categoria, data de posição e "somente com saldo"; resultado com código, categoria, obra, unidade, saldo na data e última entrada (data, fornecedor e NF). **Extrato** por insumo e obra com saldo anterior, entradas, saídas, saldo acumulado por movimento e saldo final.
+- Sem migração SQL: os novos campos ficam no estado operacional existente. Nenhum dado é reescrito automaticamente.
+
+Próximas etapas do mesmo escopo: nota fiscal de compra como documento próprio (com devolução e frete), reprogramação e cancelamento de saldos, reservas, transferências entre obras, devolução ao estoque, inicialização de saldo, locais e fechamento. Antes da nota fiscal, normalizar estoque e cadastros em tabelas próprias no D1 (limite atual de 1 MiB do estado único).
