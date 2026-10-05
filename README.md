@@ -1,4 +1,4 @@
-# ERP Fasolo e Simon · 0.6 em desenvolvimento
+# ERP Fasolo e Simon · 0.6.1 em desenvolvimento
 
 Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
@@ -42,6 +42,7 @@ python tests/browser_shared.py
 python tests/browser_access.py
 python tests/browser_audit.py
 python tests/browser_security.py
+python tests/browser_navigation.py
 # Para o roteiro abaixo: iniciar com FES_TEST_MAIL=1 (envio simulado, nunca real)
 python tests/browser_communication.py
 ```
@@ -73,3 +74,9 @@ Comandos específicos validam função, obra, conteúdo, etapa e revisão do reg
 Esta implementação inicial mantém o estado operacional em um agregado JSON, limitado conservadoramente a **1 MiB**, com tabelas separadas para acesso, auditoria, operações e arquivos. Isso simplifica a integridade do fluxo existente, mas serializa escritas e não é adequado a um ERP de grande volume. Ao atingir o limite, novas escritas são recusadas sem apagar dados. Antes de ampliar o uso, normalizar as entidades e migrar transações, mantendo as garantias e os testes. O orçamento real precisa ser configurado por obra; não há integração contábil/fiscal, pagamentos, reservas de estoque, retenções ou revisão após emissão.
 
 Há importação explícita de PDFs com extração e revisão; não há importação do banco antigo do navegador. Nunca copiar seu snapshot para o D1. Consulte [docs/RELATORIOS_DOCUMENTOS.md](docs/RELATORIOS_DOCUMENTOS.md) para os limites de extração e a configuração de e-mail. O histórico da API limita a consulta a 500 ações recentes por obra; o histórico dos registros continua no estado. Ainda faltam paginação da auditoria e rotina automática de limpeza dos uploads abandonados. A publicação no GitHub não implanta o ERP nem comprova funcionamento no Sites.
+
+## Ajustes de usabilidade · 0.6.1
+
+O botão Nova solicitação fica visível no Painel e em Solicitações. Sem o poder de criar na obra selecionada, fica desativado com orientação, em vez de desaparecer. Administrador sem vínculo operacional vê como cadastrar/liberar obra e cargo; seus poderes não são elevados automaticamente. O cabeçalho separa identidade, filtro de obra e os botões Atualizar/Histórico/Notificações. Sem obra liberada, mostra essa condição explicitamente. Relatórios e documentos usam seu próprio campo Obra; nessas telas o filtro global é ocultado com orientação.
+
+Para trazer a correção ao RP — Testes, atualizar somente a homologação com o código mais recente da branch, preservando o login oficial e os mesmos recursos D1/R2. Não é necessária uma nova migração nesta correção. Cadastrar obra em Segurança não libera automaticamente o acesso: vincular o usuário a um cargo nessa obra e conferir o poder Criar solicitações.

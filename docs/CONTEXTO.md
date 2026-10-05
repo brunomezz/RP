@@ -18,7 +18,7 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.6, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.6.1, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
 A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Há importação explícita de PDFs, com sugestões revisadas antes de criar solicitação ou proposta. Não há importação do banco antigo do navegador.
 
@@ -69,3 +69,7 @@ Onze relatórios são gerados dos registros reais da obra autorizada. PDF e e-ma
 PDFs são armazenados no R2 privado, deduplicados por conteúdo/obra, com texto e autoria no D1. Extrair não cadastra nem movimenta estoque. O usuário revisa campos obrigatórios nos formulários existentes; confirmação e vínculo ao documento são atômicos e impedem reutilização para duplicar cadastros. PDFs digitalizados são guardados, mas exigem OCR ainda não configurado.
 
 E-mails usam HTTPS para Resend, com PDF do servidor, destinatário cadastrado e autorizado, histórico, chave idempotente e repetição controlada. `RESEND_API_KEY` e `REPORT_EMAIL_FROM` são configurações seguras do Sites; não há envio real verificado nesta tarefa. Sem elas, PDF/notificações/importação continuam disponíveis. Detalhes: [RELATORIOS_DOCUMENTOS.md](RELATORIOS_DOCUMENTOS.md).
+
+## Correção de navegação · 0.6.1
+
+A criação de solicitação permanece validada no servidor, mas o botão deixa de ser ocultado quando falta poder: fica desativado e explica a liberação necessária. Administrador sem obra encontra a orientação para cadastrar obra e vincular seu próprio cargo. Filtro global com label Obra e indicação clara de ausência de acesso; telas com seleção própria deixam de mostrar um filtro desativado que não se aplica a elas. Cabeçalho divide navegação/identidade dos controles; layout verificado em 1366, 1024, 768 e 390 px. Não há migração nem concessão automática de acesso nesta correção.

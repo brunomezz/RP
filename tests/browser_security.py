@@ -26,13 +26,13 @@ with sync_playwright() as p:
     save_user(form,'Liberar acesso pela interface')
     pending.get_by_role('button',name='Verificar acesso').click();expect(pending.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(pending.get_by_role('button',name='Nova solicitação')).to_be_visible()
     expect(pending.get_by_role('link',name='Segurança',exact=True)).to_have_count(0)
-    engineer=login('user2');expect(engineer.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_hidden()
+    engineer=login('user2');expect(engineer.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_visible();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_disabled()
     admin.locator('#security-role').select_option('engenharia');role=admin.locator('#security-role-form');role.get_by_label('Criar solicitações',exact=True).check();role.locator('[name="reason"]').fill('Autorizar criação para engenharia no teste');role.get_by_role('button',name='Salvar poderes do cargo').click();done(admin)
     engineer.locator('#refresh').click();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_visible()
     # Revoke it, keeping the engineer's page open; the direct API must already deny.
     admin.locator('#security-role').select_option('engenharia');role=admin.locator('#security-role-form');role.get_by_label('Criar solicitações',exact=True).uncheck();role.locator('[name="reason"]').fill('Restaurar poderes originais');role.get_by_role('button',name='Salvar poderes do cargo').click();done(admin)
     response=engineer.request.post(url+'/api/commands',headers={'Idempotency-Key':str(uuid.uuid4())},data={'action':'create','work':'ELYSIUM','purpose':'Bloqueado','items':[]});assert response.status==403
-    engineer.locator('#refresh').click();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_hidden()
+    engineer.locator('#refresh').click();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_visible();expect(engineer.get_by_role('button',name='Nova solicitação')).to_be_disabled()
     form=select_user('test-unassigned');form.get_by_label('Suspender acesso ao ERP').check();save_user(form,'Suspender durante teste')
     pending.locator('#refresh').click();expect(pending.get_by_role('heading',name='Acesso suspenso')).to_be_visible();expect(pending.locator('#nav')).to_be_empty()
     form=select_user('test-unassigned');form.get_by_label('Suspender acesso ao ERP').uncheck();save_user(form,'Reativar durante teste')
