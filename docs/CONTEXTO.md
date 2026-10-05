@@ -18,7 +18,7 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.6.1, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.7, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
 A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Há importação explícita de PDFs, com sugestões revisadas antes de criar solicitação ou proposta. Não há importação do banco antigo do navegador.
 
@@ -32,7 +32,7 @@ Comandos aceitam campos específicos e revisão esperada; rejeitam ações fora 
 
 ## Administração de acesso na versão 0.5
 
-A aba **Segurança** administra usuários, vínculos por obra e poderes dos quatro cargos. Os poderes iniciais preservam as responsabilidades descritas acima; o administrador pode delegar/remover ações explicitamente. Administração não concede acesso operacional automático. A leitura dos registros da obra exige vínculo ativo; os cadastros da empresa continuam compartilhados entre pessoas com acesso operacional.
+A aba **Segurança** administra usuários, vínculos por obra e poderes dos quatro cargos. Os poderes iniciais preservam as responsabilidades descritas acima; o administrador pode delegar/remover ações explicitamente. Na 0.7, Admin concede acesso operacional total às obras atuais e futuras. Os demais cargos continuam limitados às obras liberadas. A leitura dos registros da obra exige vínculo ativo; os cadastros da empresa continuam compartilhados entre pessoas com acesso operacional.
 
 `migrations/0002_security.sql` preserva os vínculos atuais e acrescenta usuários, administradores, poderes dos cargos, revisão de segurança, auditoria e idempotência administrativas. Todas as mudanças exigem motivo. Há proteção do último administrador ativo, validação por ação no servidor e conferência da revisão de segurança no commit operacional. O primeiro administrador é explicitamente configurado pelo operador do ambiente; demais concessões podem ser feitas pela aba. Procedimento: [SEGURANCA.md](SEGURANCA.md).
 
@@ -48,7 +48,7 @@ Escopo, evidências e recomendações por setor: [AUDITORIA_FUNCIONAL.md](AUDITO
 
 ## Verificação e configuração pendente
 
-14 testes de domínio e 29 testes de integração passaram. Cinco roteiros Chromium passaram, incluindo comunicação/PDFs, além de: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
+14 testes de domínio e 34 testes de integração passaram. Sete roteiros Chromium passaram, incluindo comunicação/PDFs, navegação e poderes individuais, além de: administração real pela aba Segurança, compartilhamento com cinco sessões, estados de acesso e auditoria dos quatro setores pelas 14 telas. Incluem compartilhamento, restart/logout locais, permissões diretas na API, concorrência, anexos e autoria; detalhes em [TESTES_COMPARTILHADOS.md](TESTES_COMPARTILHADOS.md). Rodar `npm ci` e `npm run check`; `npm start` inicia apenas desenvolvimento local com D1/R2 e identidades fictícias de teste.
 
 A documentação fornecida declara D1/R2 e helpers de autenticação no starter Sites. Ainda faltam o esquema oficial de `.openai/hosting.json`, import/assinatura/formato de identidade do helper e validação em um novo site de homologação. A consulta direta à documentação foi bloqueada pelo proxy deste ambiente. `hosting/sites-auth.mjs` recusa acesso com 503 enquanto não for conectado ao helper oficial. Portanto, **login e banco remoto funcionando no Sites não foram demonstrados**. Não usar a autenticação de teste como substituto. O usuário relatou integração funcional em uma homologação criada pelo Sites; a implementação desse site não foi trazida para esta branch nem verificada diretamente. Ao sincronizar as correções, preservar o helper real e os bindings existentes dessa homologação.
 
@@ -73,3 +73,9 @@ E-mails usam HTTPS para Resend, com PDF do servidor, destinatário cadastrado e 
 ## Correção de navegação · 0.6.1
 
 A criação de solicitação permanece validada no servidor, mas o botão deixa de ser ocultado quando falta poder: fica desativado e explica a liberação necessária. Administrador sem obra encontra a orientação para cadastrar obra e vincular seu próprio cargo. Filtro global com label Obra e indicação clara de ausência de acesso; telas com seleção própria deixam de mostrar um filtro desativado que não se aplica a elas. Cabeçalho divide navegação/identidade dos controles; layout verificado em 1366, 1024, 768 e 390 px. Não há migração nem concessão automática de acesso nesta correção.
+
+## Cargo Admin e poderes individuais · 0.7
+
+A pedido do usuário, o administrador anterior passa a ser o cargo **Admin**, com todas as funções e obras atuais/futuras. Vem apenas de `security_admins`, concedido explicitamente, nunca do nome, do primeiro acesso ou do login. Admin mantém etapas, limites, orçamento, autoria e concorrência. Não pode ser restringido por edição de cargo ou exceção; suspender bloqueia a conta, preservada a proteção do último Admin.
+
+Migração `0004_user_powers.sql` adiciona exceções por usuário/obra/ação. Cargo fornece a base; Permitir acrescenta, Bloquear remove mesmo com vários cargos, Seguir cargo remove a exceção. Remover acesso à obra remove suas exceções. Servidor carrega obras, cargos, exceções e revisão em um batch consistente e confere a revisão no commit. A interface mostra cargo atual e resultado efetivo e separa Usuários, Poderes por cargo, Obras e Histórico. Relatórios e destinatários usam os poderes efetivos; avisos incluem Admin. A atualização da homologação deve preservar autenticação oficial e D1/R2; não foi publicado o site da equipe.

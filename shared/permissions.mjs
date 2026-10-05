@@ -1,5 +1,5 @@
 // Stable action identifiers shared by the API and the administration interface.
-export const roles = { almoxarifado: 'Almoxarifado', engenharia: 'Engenharia', suprimentos: 'Suprimentos', diretor: 'Diretor de engenharia' };
+export const roles = { admin: 'Admin', almoxarifado: 'Almoxarifado', engenharia: 'Engenharia', suprimentos: 'Suprimentos', diretor: 'Diretor de engenharia' };
 export const capabilities = {
   reportsExport: 'Gerar e exportar relatórios', reportsEmail: 'Enviar relatórios por e-mail', documentsImport: 'Importar e revisar PDFs',
   create: 'Criar solicitações', edit: 'Revisar solicitações antes da emissão',
@@ -12,4 +12,10 @@ export const capabilities = {
 };
 export function can(actor, action, work) {
   return actor?.access?.some(a => (!work || a.work_id === work) && a.permissions?.includes(action)) || false;
+}
+
+export function effectivePermissions(grants,overrides,userId,workId,memberRoles){
+ const allowed=new Set(grants.filter(g=>memberRoles.includes(g.role)).map(g=>g.permission));
+ for(const p of overrides.filter(p=>p.user_id===userId&&p.work_id===workId)){if(p.effect==='allow')allowed.add(p.permission);else allowed.delete(p.permission);}
+ return [...allowed].sort();
 }

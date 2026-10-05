@@ -11,10 +11,9 @@ with sync_playwright() as p:
         page.wait_for_function("document.querySelector('#identity').textContent.startsWith('Teste')")
         return page
     def done(page):page.wait_for_function("document.body.getAttribute('aria-busy') !== 'true'")
-    admin=login('admin');expect(admin.get_by_role('heading',name='Bem-vindo ao ERP')).to_be_visible()
-    expect(admin.get_by_role('button',name='Nova solicitação')).to_be_visible();expect(admin.get_by_role('button',name='Nova solicitação')).to_be_disabled()
-    expect(admin.locator('#work')).to_be_disabled();expect(admin.locator('#work option:checked')).to_have_text('Nenhuma obra liberada para você')
-    expect(admin.locator('#work-help')).to_contain_text('liberar meu cargo');assert admin.request.post(url+'/api/commands',headers={'Idempotency-Key':'navigation-blocked'},data={'action':'create','work':'ELYSIUM','purpose':'Bloqueado','items':[]}).status==403
+    admin=login('admin');expect(admin.get_by_role('heading',name='Painel de suprimentos')).to_be_visible()
+    expect(admin.get_by_role('button',name='Nova solicitação')).to_be_enabled();expect(admin.locator('#work')).to_be_enabled()
+    admin.locator('#work').select_option('BLEND');expect(admin.get_by_role('button',name='Nova solicitação')).to_be_enabled()
     a=login('user1');expect(a.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(a.get_by_role('button',name='Nova solicitação')).to_be_enabled()
     expect(a.locator('#work')).to_be_enabled();a.locator('#work').select_option('ELYSIUM');a.locator('#refresh').click();done(a);expect(a.locator('#work')).to_have_value('ELYSIUM')
     a.get_by_role('button',name='Nova solicitação').click();expect(a.get_by_role('heading',name='Nova solicitação',exact=True)).to_be_visible();expect(a.locator('#form-work')).to_have_value('ELYSIUM');a.get_by_role('button',name='Fechar',exact=True).click()
@@ -32,4 +31,4 @@ with sync_playwright() as p:
     e=login('user2');expect(e.get_by_role('heading',name='Painel de suprimentos')).to_be_visible();expect(e.get_by_role('button',name='Nova solicitação')).to_be_visible();expect(e.get_by_role('button',name='Nova solicitação')).to_be_disabled();expect(e.locator('#new-request-help')).to_contain_text('Criar solicitações')
     assert not errors,errors
     browser.close()
-print('PASS: ação visível e bloqueio explicado; admin sem obra; seleção real e persistência do filtro; formulário com obra selecionada; sem sobreposição em 4 larguras; filtro próprio dos relatórios; permissões preservadas.')
+print('PASS: ação visível e bloqueio explicado; Admin com acesso total; seleção real e persistência do filtro; formulário com obra selecionada; sem sobreposição em 4 larguras; filtro próprio dos relatórios; permissões preservadas.')

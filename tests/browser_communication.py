@@ -20,7 +20,7 @@ with sync_playwright() as p:
         if page.locator('#dialog').evaluate('(d)=>d.open'):page.locator('.dialog-head [data-action="close"]').click()
         page.goto(url+'/#'+name);expect(page.get_by_role('heading',name=heading,exact=True)).to_be_visible();done(page)
         page.locator('#refresh').click();done(page)
-    admin=login('admin');view(admin,'seguranca','Segurança');admin.locator('#security-user').select_option('test-engineer');form=admin.locator('#security-user-form');form.locator('[name="email"]').fill('engineer@example.test');form.locator('[name="reason"]').fill('E-mail fictício para teste do envio');form.get_by_role('button',name='Salvar acesso do usuário').click();done(admin)
+    admin=login('admin');view(admin,'seguranca','Segurança');admin.locator('#security-user').select_option('test-engineer');form=admin.locator('#security-user-form');form.locator('[name="email"]').fill('engineer@example.test');form.locator('[name="reason"]').fill('E-mail fictício para teste do envio');form.get_by_role('button',name='Salvar usuário').click();done(admin)
     a=login('user1');e=login('user2');s=login('procurement')
     view(a,'documentos','Importar PDFs');a.locator('#document-file').set_input_files(str(file));a.get_by_role('button',name='Importar e extrair texto').click()
     expect(a.locator('.pdf-text')).to_have_value(__import__('re').compile(tag));expect(a.locator('#dialog-content')).to_contain_text('Itens sugeridos');expect(a.locator('#dialog-content')).to_contain_text('12.5')

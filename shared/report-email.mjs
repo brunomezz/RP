@@ -3,10 +3,16 @@ import { buildReport, reportStages } from './report-data.mjs';
 import { reportPDF } from './report-pdf.mjs';
 export const emailConfigured=env=>!!(env.RESEND_API_KEY&&env.REPORT_EMAIL_FROM);
 const binaryBase64=bytes=>{let s='';for(let n=0;n<bytes.length;n+=8192)s+=String.fromCharCode(...bytes.subarray(n,n+8192));return btoa(s);};
+const recipientAccess=`(EXISTS(SELECT 1 FROM security_admins a WHERE a.user_id=u.id) OR EXISTS(
+ SELECT 1 FROM memberships m WHERE m.user_id=u.id AND m.work_id=? AND m.active=1
+ AND NOT EXISTS(SELECT 1 FROM user_permissions x WHERE x.user_id=u.id AND x.work_id=m.work_id AND x.permission='reportsExport' AND x.effect='deny')
+ AND (EXISTS(SELECT 1 FROM user_permissions x WHERE x.user_id=u.id AND x.work_id=m.work_id AND x.permission='reportsExport' AND x.effect='allow') OR EXISTS(SELECT 1 FROM role_permissions p WHERE p.role=m.role AND p.permission='reportsExport'))))`;
+async function recipients(db,work,id){
+ const sql=`SELECT u.id,u.name,c.email FROM security_users u JOIN user_contacts c ON c.user_id=u.id WHERE u.disabled=0 AND c.email<>'' AND ${recipientAccess}`+(id?' AND u.id=?':'')+' ORDER BY u.name';
+ return (await db.prepare(sql).bind(work,...(id?[id]:[])).all()).results;
+}
 async function recipient(db,id,work){
- const user=await db.prepare(`SELECT u.id,u.name,c.email FROM security_users u JOIN user_contacts c ON c.user_id=u.id
- WHERE u.id=? AND u.disabled=0 AND c.email<>'' AND EXISTS(SELECT 1 FROM memberships m JOIN role_permissions p ON p.role=m.role WHERE m.user_id=u.id AND m.work_id=? AND m.active=1 AND p.permission='reportsExport')`).bind(id,work).first();
- if(!user)securityError(403,'O destinatário precisa ter e-mail cadastrado, acesso à obra e poder de exportar relatórios.');return user;
+ const user=(await recipients(db,work,id))[0];if(!user)securityError(403,'O destinatário precisa ter e-mail cadastrado, acesso à obra e poder de exportar relatórios.');return user;
 }
 async function reportContext(db,actor,params){
  const workId=params.work;allow(actor,workId,'reportsExport');const work=await db.prepare('SELECT id,name FROM works WHERE id=?').bind(workId).first();
@@ -51,7 +57,7 @@ export async function reportRoutes(request,env,actor,{json,response,mailFetch=fe
  if(path==='/api/reports/options'&&request.method==='GET')return response({stages:reportStages,emailConfigured:emailConfigured(env)});
  if(path==='/api/reports/recipients'&&request.method==='GET'){
   const work=url.searchParams.get('work');allow(actor,work,'reportsEmail');
-  const rows=await env.DB.prepare(`SELECT DISTINCT u.id,u.name,c.email FROM security_users u JOIN user_contacts c ON c.user_id=u.id JOIN memberships m ON m.user_id=u.id JOIN role_permissions p ON p.role=m.role WHERE u.disabled=0 AND c.email<>'' AND m.work_id=? AND m.active=1 AND p.permission='reportsExport' ORDER BY u.name`).bind(work).all();return response(rows.results);
+  return response(await recipients(env.DB,work));
  }
  if(path==='/api/reports'&&request.method==='GET'){
   const params=Object.fromEntries(url.searchParams),report=await reportContext(env.DB,actor,params);
@@ -60,7 +66,7 @@ export async function reportRoutes(request,env,actor,{json,response,mailFetch=fe
   return new Response(bytes,{headers:{'Content-Type':'application/pdf','Content-Disposition':`attachment; filename="FeS-${report.stage}.pdf"`,'Cache-Control':'no-store','X-Content-Type-Options':'nosniff'}});
  }
  if(path==='/api/reports/emails'&&request.method==='GET'){
-  const rows=await env.DB.prepare("SELECT * FROM report_emails e WHERE actor_id=? AND EXISTS(SELECT 1 FROM memberships m WHERE m.user_id=? AND m.work_id=e.work_id AND m.active=1) ORDER BY created_at DESC LIMIT 100").bind(actor.id,actor.id).all();return response(rows.results.map(jobInfo));
+  const rows=await env.DB.prepare("SELECT * FROM report_emails e WHERE actor_id=? AND (?=1 OR EXISTS(SELECT 1 FROM memberships m WHERE m.user_id=? AND m.work_id=e.work_id AND m.active=1)) ORDER BY created_at DESC LIMIT 100").bind(actor.id,Number(actor.isAdmin),actor.id).all();return response(rows.results.map(jobInfo));
  }
  if(path==='/api/reports/email'&&request.method==='POST'){
   const p=await json(request),key=request.headers.get('Idempotency-Key');if(!key||key.length>100)securityError(400,'Identificador de envio inválido.');

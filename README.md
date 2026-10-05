@@ -1,4 +1,4 @@
-# ERP Fasolo e Simon · 0.6.1 em desenvolvimento
+# ERP Fasolo e Simon · 0.7 em desenvolvimento
 
 Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
@@ -30,7 +30,7 @@ npm start
 
 ```sh
 npm test                   # 14 testes de domínio/filtros
-npm run test:integration   # 29 testes D1/R2, segurança, autenticação de teste e concorrência
+npm run test:integration   # 34 testes D1/R2, segurança, autenticação de teste e concorrência
 npm run build:sites        # bundle Fetch, sem publicação
 npm run demo               # HTML offline separado, somente exemplos locais
 ```
@@ -43,6 +43,7 @@ python tests/browser_access.py
 python tests/browser_audit.py
 python tests/browser_security.py
 python tests/browser_navigation.py
+python tests/browser_user_powers.py
 # Para o roteiro abaixo: iniciar com FES_TEST_MAIL=1 (envio simulado, nunca real)
 python tests/browser_communication.py
 ```
@@ -51,15 +52,15 @@ python tests/browser_communication.py
 
 ## Administração e primeiro acesso
 
-Em **Administração → Segurança**, o administrador libera pessoas por obra, configura poderes dos quatro cargos, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
+Em **Administração → Segurança**, o administrador libera pessoas por obra, configura poderes dos quatro cargos operacionais e exceções por usuário, suspende/reativa usuários e cadastra obras. A pessoa entra uma vez e aparece na lista mesmo com acesso pendente. Os poderes iniciais preservam o fluxo existente; mudanças exigem motivo e entram no histórico. Não é permitido remover o último administrador ativo.
 
-Aplicar as migrações pendentes, incluindo `migrations/0002_security.sql` e `migrations/0003_communication.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
+Aplicar as migrações pendentes, incluindo `migrations/0002_security.sql` e `migrations/0003_communication.sql` e `migrations/0004_user_powers.sql` e cadastrar explicitamente o primeiro administrador com o procedimento de [docs/SEGURANCA.md](docs/SEGURANCA.md). Não há promoção automática de visitantes. Depois disso, a gestão ocorre na própria interface. O SQL inicial pode ser gerado por `scripts/bootstrap-admin.mjs`; nenhum segredo novo é necessário.
 
 Os pedidos preservam campos/anexos ainda não salvos nos outros formulários do diálogo. Login, falta de acesso, suspensão, configuração incompleta e indisponibilidade têm mensagens próprias; as chamadas têm tempo limite de 20 segundos.
 
 ## Implantar posteriormente no Sites
 
-Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_6.md](docs/PROMPT_SITES_0_6.md).
+Texto pronto para encaminhar ao Sites: [docs/PROMPT_SITES_0_7.md](docs/PROMPT_SITES_0_7.md).
 
 Procedimento completo, configurações e pendências: [docs/IMPLANTACAO_SITES.md](docs/IMPLANTACAO_SITES.md). Criar **outro site de homologação**, com D1/R2 próprios; não reutilizar o banco ou bucket de produção.
 
@@ -77,6 +78,14 @@ Há importação explícita de PDFs com extração e revisão; não há importa�
 
 ## Ajustes de usabilidade · 0.6.1
 
-O botão Nova solicitação fica visível no Painel e em Solicitações. Sem o poder de criar na obra selecionada, fica desativado com orientação, em vez de desaparecer. Administrador sem vínculo operacional vê como cadastrar/liberar obra e cargo; seus poderes não são elevados automaticamente. O cabeçalho separa identidade, filtro de obra e os botões Atualizar/Histórico/Notificações. Sem obra liberada, mostra essa condição explicitamente. Relatórios e documentos usam seu próprio campo Obra; nessas telas o filtro global é ocultado com orientação.
+O botão Nova solicitação fica visível no Painel e em Solicitações. Sem o poder de criar na obra selecionada, fica desativado com orientação, em vez de desaparecer. Na 0.6.1, administrador sem vínculo operacional via como cadastrar/liberar obra e cargo. Na 0.7, o cargo Admin passa a ter acesso total explícito. O cabeçalho separa identidade, filtro de obra e os botões Atualizar/Histórico/Notificações. Sem obra liberada, mostra essa condição explicitamente. Relatórios e documentos usam seu próprio campo Obra; nessas telas o filtro global é ocultado com orientação.
 
 Para trazer a correção ao RP — Testes, atualizar somente a homologação com o código mais recente da branch, preservando o login oficial e os mesmos recursos D1/R2. Não é necessária uma nova migração nesta correção. Cadastrar obra em Segurança não libera automaticamente o acesso: vincular o usuário a um cargo nessa obra e conferir o poder Criar solicitações.
+
+## Segurança simplificada · 0.7
+
+Segurança tem quatro abas: Usuários, Poderes por cargo, Obras e Histórico. Na ficha da pessoa, selecionar seu cargo e marcar as obras permitidas. Para vários cargos existentes, o modo por obra conserva os vínculos; escolher outro cargo é uma alteração explícita. Personalizar poderes permite Seguir cargo, Permitir ou Bloquear por pessoa/obra, com resultado efetivo ao lado. Bloqueio individual prevalece sobre todos os cargos nessa obra; herança acompanha as próximas alterações do cargo.
+
+**Admin tem acesso total a todas as obras atuais e futuras, a todas as ações e à Segurança.** Os administradores já explicitamente cadastrados passam a representar esse cargo nesta atualização. Não promove visitantes nem cargos comuns. Admin não aceita redução de poderes; escolher outro cargo para limitar a pessoa. Suspensão continua bloqueando a conta; o último Admin ativo é protegido. Regras de processo e integridade continuam obrigatórias.
+
+Aplicar a migração pendente `0004_user_powers.sql` na homologação antes de usar a 0.7; ela cria `user_permissions`, preserva dados/cargos e não restaura poderes removidos. Não há novo segredo. Exceções, vínculos e promoção/demissão de Admin são salvos com motivo, revisão, auditoria e idempotência na mesma transação. Permissões individuais não liberam uma obra sem vínculo. Relatórios/e-mail/notificações consideram o Admin e os poderes efetivos.

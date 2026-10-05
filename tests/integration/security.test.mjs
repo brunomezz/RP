@@ -13,12 +13,12 @@ async function change(h,c,body){const s=await get(h,'/api/security',c);const r=a
 const user=(userId,memberships=[],admin=false,disabled=false)=>({action:'user',userId,memberships,admin,disabled});
 const create={action:'create',work:'ELYSIUM',purpose:'Teste de poderes',items:[item]};
 
-test('admin sem obra configura segurança; não admin e origem externa não administram nem se promovem',async()=>{
+test('Admin opera todas as obras e configura segurança; não admin e origem externa não administram nem se promovem',async()=>{
  const h=await createHarness();try{
   const a=await h.login('admin'),u=await h.login('user1');
-  const session=await get(h,'/api/session',a);assert.equal(session.isAdmin,true);assert.deepEqual(session.access,[]);
-  const state=await get(h,'/api/state',a);assert.deepEqual(state.catalog,[]);assert.deepEqual(state.works,[]);
-  assert.equal((await post(h,'/api/commands',a,create)).status,403);
+  const session=await get(h,'/api/session',a);assert.equal(session.isAdmin,true);assert.deepEqual(session.access.map(a=>a.work_id).sort(),['BLEND','ELYSIUM']);assert.ok(session.access.every(a=>a.role==='admin'&&a.permissions.includes('director')));
+  const state=await get(h,'/api/state',a);assert.ok(state.catalog.length);assert.equal(state.works.length,2);
+  assert.equal((await post(h,'/api/commands',a,create)).status,200);
   assert.equal((await h.fetch('/api/security',u)).status,403);
   assert.equal((await post(h,'/api/security',u,{...user('test-almox',[],true),revision:0,reason:'Promoção forjada'})).status,403);
   assert.equal((await h.fetch('/api/security',a,{method:'POST',headers:{Origin:'https://other.test'},body:'{}'})).status,403);

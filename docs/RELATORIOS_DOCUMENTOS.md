@@ -5,7 +5,7 @@
 - **Relatórios → Central de relatórios**: selecionar obra, etapa e filtros, gerar a prévia e exportar PDF. Para compartilhar, escolher um colaborador cadastrado e clicar Enviar relatório por e-mail. Não há envio automático.
 - **Notificações** no cabeçalho/menu: consultar eventos e marcar uma ou todas como lidas. A leitura de uma pessoa não afeta outra. Abrir etapa leva à tela correspondente; o código do registro consta na mensagem.
 - **Cadastros → Importar PDFs**: escolher obra/arquivo, extrair e revisar texto/sugestões. Criar uma solicitação ou cadastrar proposta exige confirmação nos formulários existentes. É possível somente vincular o PDF a uma solicitação, pedido ou contrato existente.
-- **Administração → Segurança**: cadastrar o e-mail do colaborador e conceder/retirar os poderes Exportar relatórios, Enviar relatórios e Importar PDFs. Ser administrador sozinho não concede operação nas obras.
+- **Administração → Segurança**: cadastrar o e-mail do colaborador e conceder/retirar os poderes Exportar relatórios, Enviar relatórios e Importar PDFs. Na 0.7, Admin tem acesso total; demais cargos podem receber exceções por usuário/obra.
 
 ## Relatórios disponíveis
 

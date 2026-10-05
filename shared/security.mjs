@@ -1,5 +1,5 @@
 import { securityNotice } from './notifications.mjs';
-import { roles, capabilities, can } from './permissions.mjs';
+import { roles, capabilities, can, effectivePermissions } from './permissions.mjs';
 export function securityError(status, message, code) {
   throw Object.assign(new Error(message), { status, code });
 }
@@ -20,17 +20,20 @@ export async function registerIdentity(db, user) {
 export async function loadActor(db, user) {
   const person = authenticated(user);
   // One batch provides a consistent permission/revision snapshot for conditional writes.
-  const [account, access, grants, administrators, meta] = await db.batch([
+  const [account, access, grants, administrators, meta, works, overrides] = await db.batch([
     db.prepare('SELECT disabled FROM security_users WHERE id=?').bind(person.id),
     db.prepare('SELECT m.work_id,m.role,w.name FROM memberships m JOIN works w ON w.id=m.work_id WHERE m.user_id=? AND m.active=1').bind(person.id),
     db.prepare('SELECT role,permission FROM role_permissions'),
     db.prepare('SELECT user_id FROM security_admins WHERE user_id=?').bind(person.id),
     db.prepare('SELECT revision FROM security_meta WHERE id=1'),
+    db.prepare('SELECT id,name FROM works'),
+    db.prepare('SELECT * FROM user_permissions WHERE user_id=?').bind(person.id),
   ]);
   if (!meta.results.length) securityError(503, 'Conclua a configuração de segurança do ambiente.', 'ERP_SETUP_REQUIRED');
   if (account.results[0]?.disabled) securityError(403, 'Seu acesso foi suspenso. Procure o administrador.', 'ACCOUNT_DISABLED');
-  const actor = { ...person, isAdmin: administrators.results.length > 0, securityRevision: meta.results[0].revision,
-    access: access.results.map(a => ({ ...a, permissions: grants.results.filter(g => g.role === a.role).map(g => g.permission) })) };
+  const isAdmin=administrators.results.length>0;
+  const actor = { ...person, isAdmin, securityRevision: meta.results[0].revision,
+    access: isAdmin ? works.results.map(w=>({work_id:w.id,name:w.name,role:'admin',permissions:Object.keys(capabilities)})) : access.results.map(a=>({...a,permissions:effectivePermissions(grants.results,overrides.results,person.id,a.work_id,access.results.filter(m=>m.work_id===a.work_id).map(m=>m.role))})) };
   if (!actor.isAdmin && !actor.access.length) securityError(403, 'Seu login foi reconhecido. Aguarde a liberação de cargo e obra pelo administrador.', 'ACCESS_PENDING');
   return actor;
 }
@@ -50,9 +53,10 @@ export async function securitySnapshot(db, actor) {
     db.prepare('SELECT * FROM role_permissions ORDER BY role,permission'),
     db.prepare('SELECT id,name FROM works ORDER BY name'),
     db.prepare('SELECT * FROM security_audit ORDER BY at DESC,id DESC LIMIT 100'),
+    db.prepare('SELECT * FROM user_permissions ORDER BY user_id,work_id,permission'),
   ]);
   return { revision: results[0].results[0].revision, users: results[1].results, memberships: results[2].results,
-    grants: results[3].results, works: results[4].results, audit: results[5].results, roles, capabilities };
+    grants: results[3].results, works: results[4].results, audit: results[5].results, overrides: results[6].results, roles, capabilities };
 }
 export async function changeSecurity(db, actor, input, key) {
   requireAdmin(actor);
@@ -80,23 +84,36 @@ export async function changeSecurity(db, actor, input, key) {
     const email = input.email===undefined ? (current.email||'') : typeof input.email==='string' ? input.email.trim().toLowerCase() : null;
     if(email===null || email.length>254 || (email&&!/^[^\s@<>]+@[^\s@<>]+\.[^\s@<>]+$/.test(email))) securityError(400,'Confira o e-mail do colaborador.');
     const links = input.memberships.map(m => {
-      if (!m || !Object.hasOwn(roles,m.role) || !snapshot.works.some(w => w.id === m.workId)) securityError(400, 'Cargo ou obra inválidos.');
+      if (!m || (!Object.hasOwn(roles,m.role)||m.role==='admin') || !snapshot.works.some(w => w.id === m.workId)) securityError(400, 'Cargo ou obra inválidos.');
       return { workId: m.workId, role: m.role };
     });
     if (new Set(links.map(m => JSON.stringify(m))).size !== links.length) securityError(400, 'Vínculo repetido.');
     if (current.admin && (input.disabled || !input.admin) && !snapshot.users.some(u => u.id !== target && u.admin && !u.disabled))
       securityError(409, 'Mantenha pelo menos um administrador ativo. Libere outro administrador antes de remover este acesso.');
-    before = { email: current.email||'', admin: !!current.admin, disabled: !!current.disabled, memberships: snapshot.memberships.filter(m => m.user_id === target).map(m => ({workId:m.work_id,role:m.role})) };
-    after = { email, admin: input.admin, disabled: input.disabled, memberships: links };
+    const oldOverrides=snapshot.overrides.filter(p=>p.user_id===target);
+    const overrides=input.overrides===undefined?oldOverrides.filter(p=>links.some(m=>m.workId===p.work_id)):input.overrides;
+    if(!Array.isArray(overrides)||overrides.length>2000)securityError(400,'Poderes individuais inválidos.');
+    const exceptions=overrides.map(p=>{
+      if(!p||typeof p!=='object')securityError(400,'Poder individual inválido.');
+      const workId=p.workId??p.work_id;
+      if(!links.some(m=>m.workId===workId)||!Object.hasOwn(capabilities,p.permission)||!['allow','deny'].includes(p.effect))securityError(400,'O poder individual precisa de uma obra liberada e uma ação válida.');
+      return {workId,permission:p.permission,effect:p.effect};
+    });
+    if(new Set(exceptions.map(p=>p.workId+':'+p.permission)).size!==exceptions.length)securityError(400,'Poder individual repetido.');
+    if(input.admin&&input.overrides?.length)securityError(400,'Admin tem todos os poderes. Não configure exceções individuais para esse cargo.');
+    before = { email: current.email||'', admin: !!current.admin, disabled: !!current.disabled, overrides: oldOverrides, memberships: snapshot.memberships.filter(m => m.user_id === target).map(m => ({workId:m.work_id,role:m.role})) };
+    after = { email, admin: input.admin, disabled: input.disabled, memberships: links, overrides: input.admin?[]:exceptions };
     statements.push(db.prepare(`UPDATE security_users SET disabled=? WHERE id=? AND ${guard}`).bind(Number(input.disabled),target,operation));
     statements.push(db.prepare(`INSERT INTO user_contacts(user_id,email) SELECT ?,? WHERE ${guard} ON CONFLICT(user_id) DO UPDATE SET email=excluded.email`).bind(target,email,operation));
     statements.push(db.prepare(`DELETE FROM memberships WHERE user_id=? AND ${guard}`).bind(target,operation));
     for (const m of links) statements.push(db.prepare(`INSERT INTO memberships(user_id,work_id,role,active) SELECT ?,?,?,1 WHERE ${guard}`).bind(target,m.workId,m.role,operation));
+    statements.push(db.prepare(`DELETE FROM user_permissions WHERE user_id=? AND ${guard}`).bind(target,operation));
+    if(!input.admin)for(const p of exceptions)statements.push(db.prepare(`INSERT INTO user_permissions(user_id,work_id,permission,effect) SELECT ?,?,?,? WHERE ${guard}`).bind(target,p.workId,p.permission,p.effect,operation));
     statements.push(db.prepare(`DELETE FROM security_admins WHERE user_id=? AND ${guard}`).bind(target,operation));
     if (input.admin) statements.push(db.prepare(`INSERT INTO security_admins(user_id) SELECT ? WHERE ${guard}`).bind(target,operation));
   } else if (input.action === 'role') {
     target = input.role;
-    if (!Object.hasOwn(roles,target) || !Array.isArray(input.permissions) || input.permissions.some(p => !Object.hasOwn(capabilities,p)) || new Set(input.permissions).size !== input.permissions.length)
+    if ((!Object.hasOwn(roles,target)||target==='admin') || !Array.isArray(input.permissions) || input.permissions.some(p => !Object.hasOwn(capabilities,p)) || new Set(input.permissions).size !== input.permissions.length)
       securityError(400, 'Poderes do cargo inválidos.');
     before = snapshot.grants.filter(g => g.role === target).map(g => g.permission);
     after = [...input.permissions].sort();

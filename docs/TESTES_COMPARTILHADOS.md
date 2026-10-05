@@ -5,7 +5,7 @@ Execução em 2026-10-05, checkout separado, Node 24, Miniflare 4/workerd com D1
 ## Resultados
 
 - `npm test`: **14/14** testes de domínio e filtros passaram.
-- `npm run test:integration`: **29/29** testes passaram, incluindo o bloqueio do adapter de produção ainda não configurado.
+- `npm run test:integration`: **34/34** testes passaram, incluindo o bloqueio do adapter de produção ainda não configurado.
 - Segurança: dez testes de integração adicionais verificam administração sem obra, bloqueios diretos, liberação/suspensão, poderes configuráveis, último admin sob concorrência, histórico/idempotência, revogação entre autorização e commit, cadastro de obra sem sobrescrever dados e com limite de tamanho, anexos, reinício/migração sem restaurar poderes, configuração pendente e bootstrap explícito.
 - `python tests/browser_security.py`: passou com administração real no D1 local; liberação de pessoa pendente sem recarregar, mudança de poder refletida na interface e API, suspensão/reativação, bloqueio da remoção do último admin, obra e histórico.
 - `npm run build:sites`: bundle Fetch/Workers gerado; não executa Node no Sites e não inclui o serviço de autenticação de teste.
@@ -14,7 +14,7 @@ Execução em 2026-10-05, checkout separado, Node 24, Miniflare 4/workerd com D1
 - `python tests/browser_audit.py`: passou com quatro sessões; 14 telas, cadastro de material/fornecedor, edição de contato, solicitação mista, devolução técnica, revisão, três propostas, anexos de proposta/pedido/recebimento, devolução do diretor, escolha diferente da sugestão, pedido e contrato, atualização de chegada, recebimentos/medições/saídas fracionários, filtros, CSV e histórico. Verificou também fechamento de formulário para consulta e exibição literal de unidade com markup cadastrada pela API real. Verificou preservação de arquivo selecionado ao salvar previsão e de previsão não salva ao anexar arquivo. Catálogo vazio foi simulado apenas para a regressão da interface.
 - `python tests/browser_communication.py`: passou com extração real de PDF textual, revisão explícita de solicitação/proposta, deduplicação, download original, 11 etapas de relatório e exportação, notificações isoladas e envio **simulado**. O mock não envia e-mail externo nem comprova entrega.
 - Dez testes de integração de comunicação verificaram PDF real, filtros/revisão, acesso por obra, notificações persistentes/isoladas, extração real e limites (incluindo PDF digitalizado), origem/confirmação única, recuperação idempotente de resposta incerta e envio interrompido, janela segura, revogação de poderes e migração ausente.
-- Os cinco roteiros de navegador terminaram sem exceções JavaScript não tratadas; não são um teste de carga nem uma auditoria de segurança completa. Detalhes e sugestões: [AUDITORIA_FUNCIONAL.md](AUDITORIA_FUNCIONAL.md).
+- Os sete roteiros de navegador terminaram sem exceções JavaScript não tratadas; não são um teste de carga nem uma auditoria de segurança completa. Detalhes e sugestões: [AUDITORIA_FUNCIONAL.md](AUDITORIA_FUNCIONAL.md).
 - O HTML offline de exemplos foi gerado na rodada anterior da 0.4; `prototype/` não foi alterado nesta entrega.
 
 | Critério | Evidência executada |
@@ -40,3 +40,9 @@ A extração dos PDFs de teste passou, embora PDF.js tenha emitido aviso de aus�
 `tests/browser_navigation.py` passou com sessões reais do runtime local: botão visível para admin sem obra e engenharia sem poder, criação bloqueada na API, filtro de obra habilitado para pessoa autorizada, seleção preservada ao Atualizar e aplicada ao formulário de nova solicitação, filtro próprio de relatórios e retorno à lista. Geometria dos controles verificada em quatro larguras, sem sobreposição nem controles fora da janela. Os testes de segurança foram atualizados para exigir botão visível/desativado quando falta poder. O site remoto não foi acessado ou atualizado nesta tarefa.
 
 Nesta correção também passaram novamente os cinco roteiros anteriores (shared, access, security, audit e communication), os 14 testes de domínio e o build do Sites. Os 29 testes de integração da 0.6 permanecem como evidência daquela entrega; não foram repetidos na 0.6.1, que não altera backend ou migrações.
+
+## Segurança 0.7
+
+34 testes de integração passaram, incluindo cinco novos de Admin e exceções individuais. A expectativa antiga de Admin somente administrativo foi substituída pela nova regra solicitada de acesso total. Testes continuam verificando bloqueio de pessoas comuns e regras de etapa para Admin. Permitir/Bloquear é isolado por pessoa/obra; bloqueio domina múltiplos cargos, herança acompanha cargo, invalidez não altera revisão, revogação durante comando impede commit, restart/migração preserva exceções e retirada da obra as remove. Destinatários de relatórios incluem Admin e respeitam bloqueios individuais.
+
+Sete roteiros de navegador passaram: shared, access, audit, communication, navigation, security e user_powers. Os dois últimos usam cargo e exceções pela nova interface, sem mocks de permissão. Verificam concessão/demissão explícita de Admin, cargo de usuário, Permitir/Bloquear/Seguir cargo, padrão do cargo intacto e API bloqueada. Os 14 testes de domínio passaram e o bundle foi compilado. Tudo foi validado no runtime local D1/R2; não houve publicação ou validação remota no Sites.
