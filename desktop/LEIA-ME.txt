@@ -1,0 +1,31 @@
+RP — TESTES | FASOLO E SIMON
+
+1. Extraia TODO o ZIP (botão direito > Extrair tudo).
+2. Abra a pasta extraída e dê dois cliques em RP-Testes.exe.
+3. O ERP abre no navegador. Mantenha a pequena janela do programa aberta.
+4. Você já entra como Admin. Para testar outro cargo, escolha-o na faixa de teste
+   e clique em Usar cargo.
+5. Ao terminar, clique em Encerrar na janela do programa.
+
+Não é preciso instalar Node.js, executar comandos ou criar um site.
+Windows 10/11, 64 bits (x64). O pacote inclui o runtime.
+Os dados ficam neste computador, não são compartilhados e não vão ao Sites.
+Após baixar e extrair, o ERP funciona sem internet. E-mails são simulados,
+sem entrega. PDFs digitalizados continuam exigindo OCR não incluído.
+
+NOVA VERSÃO
+Encerre o programa antigo. Baixe e extraia a nova versão em outra pasta.
+Abra o novo RP-Testes.exe. Seus testes continuam na mesma base local.
+Antes de abrir uma versão diferente, é criado um backup dos dados existentes.
+Não abra uma versão antiga em uma base já atualizada.
+
+DADOS E DIAGNÓSTICO
+Dados: %LOCALAPPDATA%\FasoloSimon\RP-Testes\data
+Backups: pastas data-backup-... no mesmo local.
+Não apague essa pasta se quiser manter seus testes.
+Para ver os detalhes de uma falha, clique em Ver diagnóstico na janela.
+Fechar apenas o navegador não encerra o programa: use Encerrar.
+
+O pacote não é assinado digitalmente. Caso o Windows ou as regras de TI da
+empresa bloqueiem o executável, peça à TI para conferir o pacote no GitHub.
+Não é necessário desativar proteções do Windows para usar este projeto.

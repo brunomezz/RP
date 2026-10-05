@@ -1,0 +1,63 @@
+name: Pacote pessoal Windows
+on:
+  push:
+    branches: [codex/shared-erp]
+    paths-ignore: ['docs/**', 'README.md']
+  workflow_dispatch:
+permissions:
+  contents: write
+concurrency:
+  group: personal-windows-${{ github.ref }}
+  cancel-in-progress: false
+jobs:
+  windows:
+    if: github.ref == 'refs/heads/codex/shared-erp'
+    runs-on: windows-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22.21.1'
+          cache: npm
+      - run: npm ci
+      - run: npm test
+      - run: npm run build:sites
+      - run: npm run package:windows
+      - name: Validar o executável e a persistência do pacote
+        shell: pwsh
+        run: |
+          $process = Start-Process -FilePath '.\dist\windows\RP-Testes\RP-Testes.exe' -ArgumentList '--check' -PassThru -Wait
+          Get-Content '.\dist\windows\RP-Testes\diagnostico-pacote.txt'
+          if ($process.ExitCode -ne 0) { throw 'Falha no teste do pacote Windows' }
+          Remove-Item '.\dist\windows\RP-Testes\diagnostico-pacote.txt'
+      - name: Compactar pacote e registrar checksum
+        shell: pwsh
+        run: |
+          $version = (Get-Content package.json | ConvertFrom-Json).version
+          $zip = "RP-Testes-$version-Windows-x64.zip"
+          Compress-Archive -Path 'dist/windows/RP-Testes' -DestinationPath "dist/windows/$zip"
+          $hash = (Get-FileHash "dist/windows/$zip" -Algorithm SHA256).Hash.ToLower()
+          "$hash  $zip" | Set-Content 'dist/windows/SHA256SUMS.txt' -Encoding ascii
+          "RP_VERSION=$version" >> $env:GITHUB_ENV
+          "RP_ZIP=$zip" >> $env:GITHUB_ENV
+      - uses: actions/upload-artifact@v4
+        with:
+          name: RP-Testes-Windows-x64
+          path: |
+            dist/windows/*.zip
+            dist/windows/SHA256SUMS.txt
+          retention-days: 30
+      - name: Disponibilizar download no GitHub Releases
+        shell: pwsh
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          $tag = "rp-testes-v$env:RP_VERSION"
+          gh release view $tag *> $null
+          if ($LASTEXITCODE -ne 0) {
+            gh release create $tag --target $env:GITHUB_SHA --prerelease --title "RP — Testes $env:RP_VERSION (Windows)" --notes 'Teste pessoal: baixe o ZIP, extraia tudo e abra RP-Testes.exe. Sem instalar Node.js, sem login do ChatGPT e sem Sites. Dados persistentes somente neste computador. E-mails simulados. Windows x64. Executável não assinado; consulte a TI se houver bloqueio. Leia o LEIA-ME.txt. Este pacote não altera produção.'
+            if ($LASTEXITCODE -ne 0) { throw 'Não foi possível criar a release de testes' }
+          }
+          gh release upload $tag "dist/windows/$env:RP_ZIP" 'dist/windows/SHA256SUMS.txt' --clobber
+          if ($LASTEXITCODE -ne 0) { throw 'Não foi possível enviar o pacote' }

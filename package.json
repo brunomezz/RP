@@ -1,6 +1,6 @@
 {
   "name": "fasolo-simon-erp",
-  "version": "0.8.0",
+  "version": "0.8.1",
   "private": true,
   "type": "module",
   "scripts": {
@@ -9,7 +9,9 @@
     "demo": "node scripts/build-demo.mjs",
     "test:integration": "node --test tests/integration/*.test.mjs",
     "build:sites": "node scripts/build-sites.mjs",
-    "check": "node --check app.js && npm test && npm run test:integration && npm run build:sites"
+    "check": "node --check app.js && npm test && npm run test:integration && npm run build:sites",
+    "test:personal": "node desktop/smoke-local.mjs",
+    "package:windows": "node scripts/package-windows.mjs"
   },
   "engines": {
     "node": ">=22"

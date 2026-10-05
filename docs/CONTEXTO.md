@@ -18,7 +18,7 @@ Almoxarifado solicita → engenharia valida necessidade e orçamento → suprime
 
 ## Estado da próxima versão
 
-Branch `codex/shared-erp`, versão 0.8, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
+Branch `codex/shared-erp`, versão 0.8.1, desenvolvida no checkout separado `/workspace/RP-shared`. Interface com navegação agrupada, filtros, materiais/fornecedores e identidade visual oficial preservada. O checkout anterior e o site da equipe não foram substituídos ou publicados.
 
 A interface compartilhada lê/grava pela API; não usa localStorage/IndexedDB como banco e não importa registros ou anexos antigos. O protótipo offline com exemplos está separado em `prototype/`. Há importação explícita de PDFs, com sugestões revisadas antes de criar solicitação ou proposta. Não há importação do banco antigo do navegador.
 
@@ -87,3 +87,11 @@ A pedido do usuário, cadastrar a obra uma vez deve disponibilizá-la a todos. U
 Nome da obra obrigatório, código opcional automático; nomes normalizados (acentos/maiúsculas/espaços) e códigos sem distinção de maiúsculas são conferidos no servidor para evitar duplicidade. Obra e cargos são atualizados em batch D1 com revisão de segurança, auditoria e idempotência.
 
 Migração `0005_company_works.sql`: cria `user_roles`, conserva a união dos cargos antigos ativos e preenche seu acesso a todas as obras. Amplia explicitamente o alcance dos cargos existentes, preservando dados/exceções/administradores. O marcador impede que uma reaplicação restaure cargos revogados. Aplicar apenas migrações pendentes, sem recriar D1/R2 ou autenticação. Atualização guiada em [PROMPT_SITES_0_8.md](PROMPT_SITES_0_8.md).
+
+## Teste pessoal no Windows · 0.8.1
+
+O usuário decidiu testar sozinho, sem ambiente online ou compartilhamento. `desktop/Launcher.cs` inicia o runtime Node incluído no pacote e abre o navegador; `scripts/local-launcher.mjs` inicia o mesmo backend de testes D1/R2, vinculado somente a 127.0.0.1. Entrada automática como Admin fictício e troca de cargos na faixa de teste. Nada disso integra o worker do Sites ou atribui identidades reais.
+
+Banco e anexos permanecem em `%LOCALAPPDATA%\FasoloSimon\RP-Testes\data` entre versões. O iniciador bloqueia dois processos sobre a mesma base, encerra o runtime e copia um backup antes de abrir dados com versão diferente. Não há reset automático, sincronização ou migração para o Sites. E-mail sempre usa o transporte simulado; uso pessoal offline após baixar/extrair.
+
+GitHub Actions compila no Windows x64, inclui Node 22.21.1 e dependências do lockfile, executa o smoke test pelo executável, gera ZIP/checksum e publica uma pré-release de teste. Release somente depois de testes aprovados; site da equipe e branch main permanecem intactos. Sem novos segredos do usuário. Detalhes em [TESTE_PESSOAL.md](TESTE_PESSOAL.md).

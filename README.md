@@ -1,8 +1,16 @@
-# ERP Fasolo e Simon · 0.8 em desenvolvimento
+# ERP Fasolo e Simon · 0.8.1 em desenvolvimento
 
 Esta branch implementa registros compartilhados, administração de usuários/cargos na aba **Segurança**, permissões no servidor, histórico e anexos para a próxima versão. Acrescenta relatórios PDF por etapa, compartilhamento por e-mail, notificações individuais e importação de PDFs com revisão antes do cadastro. Preserva o fluxo de suprimentos e a identidade visual descritos em [docs/CONTEXTO.md](docs/CONTEXTO.md) e [docs/IDENTIDADE_VISUAL.md](docs/IDENTIDADE_VISUAL.md).
 
 **Nenhum site existente foi substituído ou publicado.** O backend foi validado com D1/R2 no runtime local da Cloudflare. A conexão ao login real do ChatGPT e o manifesto do Sites ainda dependem do starter oficial: o adapter de produção falha com 503 enquanto não estiver conectado. Não apresentar esta branch como ERP já funcionando no Sites.
+
+## Testar no Windows sem criar um site
+
+O pacote pessoal está em [Downloads de testes](https://github.com/brunomezz/RP/releases). Baixe o ZIP **RP-Testes-0.8.1-Windows-x64.zip**, use **Extrair tudo** e abra **RP-Testes.exe**. O GitHub gera e testa o pacote no Windows antes de disponibilizá-lo; se a release ainda não existir, confira [Pacote pessoal Windows](https://github.com/brunomezz/RP/actions/workflows/personal-windows.yml).
+
+Sem instalar Node.js, sem comandos e sem login do ChatGPT. Abre no navegador como Admin; a faixa de teste permite usar outro cargo. Funciona sem internet após o download. Dados apenas neste computador; e-mails são simulados e não são entregues. Mantenha a janela do programa aberta e use Encerrar ao terminar.
+
+Para atualizar, encerre a versão antiga e extraia a nova em outra pasta. Os dados ficam em `%LOCALAPPDATA%\FasoloSimon\RP-Testes\data`, separados do pacote; antes de outra versão abrir a base, é criado backup. Não abrir uma versão antiga em uma base atualizada. Sem sincronização ou envio ao Sites. Instruções e limites: [docs/TESTE_PESSOAL.md](docs/TESTE_PESSOAL.md).
 
 ## Arquitetura
 
