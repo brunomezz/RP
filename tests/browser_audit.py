@@ -5,7 +5,7 @@ from playwright.sync_api import sync_playwright,expect
 url='http://127.0.0.1:'+os.environ.get('PORT','3010')
 tag='Auditoria '+uuid.uuid4().hex[:8]
 file={'name':'audit.txt','mimeType':'text/plain','buffer':b'Evidencia de auditoria ficticia'}
-views={'inicio':'Painel de suprimentos','solicitacoes':'Solicitações','cotacoes':'Cotações','aprovacoes':'Aprovações','pedidos':'Pedidos de compra','recebimentos':'Recebimentos','contratos':'Contratos e medições','medicoes':'Medições de serviços','estoque':'Estoque por obra','movimentos':'Movimentações','cadastros':'Materiais e insumos','fornecedores':'Fornecedores','relatorios':'Acompanhamento operacional','orcamento':'Orçamento'}
+views={'inicio':'Painel de suprimentos','solicitacoes':'Solicitações','cotacoes':'Cotações','aprovacoes':'Aprovações','pedidos':'Pedidos de compra','recebimentos':'Recebimentos','contratos':'Contratos e medições','medicoes':'Medições de serviços','estoque':'Consulta de estoque de insumos','movimentos':'Movimentações','cadastros':'Insumos','fornecedores':'Fornecedores','relatorios':'Acompanhamento operacional','orcamento':'Orçamento'}
 with sync_playwright() as p:
     browser=p.chromium.launch(headless=True,executable_path=os.environ.get('FES_CHROMIUM','/usr/bin/chromium'),args=['--no-sandbox'])
     errors=[];pages={}
@@ -29,7 +29,7 @@ with sync_playwright() as p:
     a.route('**/api/state',lambda r:r.fulfill(json=empty));view(a,'estoque');a.get_by_role('button',name='Registrar saída',exact=True).click()
     expect(a.locator('#dialog-content')).to_contain_text('Nenhum material cadastrado');close(a);a.unroute('**/api/state')
     # Global material and supplier registries via the actual forms.
-    view(s,'cadastros');s.get_by_role('button',name='Novo material').click();s.locator('[name="name"]').fill(tag+' material');s.locator('[name="unit"]').fill('kg');s.get_by_role('button',name='Cadastrar material').click()
+    view(s,'cadastros');s.get_by_role('button',name='Novo insumo').click();s.locator('[name="name"]').fill(tag+' material');s.locator('[name="unit"]').fill('kg');s.get_by_role('button',name='Cadastrar insumo').click()
     expect(s.locator('#content')).to_contain_text(tag+' material');mid=next(m['id'] for m in state(s)['catalog'] if m['name']==tag+' material')
     view(s,'fornecedores');s.get_by_role('button',name='Novo fornecedor').click();s.locator('[name="name"]').fill(tag+' fornecedor');s.locator('[name="contact"]').fill('Contato inicial');s.locator('[name="email"]').fill('ficticio@example.test');s.get_by_role('button',name='Salvar fornecedor').click()
     expect(s.locator('#content')).to_contain_text(tag+' fornecedor');sid=next(v['id'] for v in state(s)['suppliers'] if v['name']==tag+' fornecedor')

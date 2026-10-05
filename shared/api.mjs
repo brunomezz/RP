@@ -12,6 +12,9 @@ import {
   withdraw,
   measure,
   normalizeText,
+  validTaxId,
+  formatTaxId,
+  nextMaterialCode,
 } from "../domain.mjs";
 const labels = {
   create: "Solicitação criada",
@@ -26,7 +29,7 @@ const labels = {
   receive: "Recebimento registrado",
   withdraw: "Saída de estoque",
   measure: "Medição registrada",
-  material: "Material cadastrado",
+  material: "Insumo salvo",
   supplier: "Fornecedor atualizado",
   quoteFiles: "Anexos da proposta registrados",
   orderFiles: "Anexos do pedido registrados",
@@ -492,13 +495,35 @@ async function apply(db, env, state, actor, p) {
       record.attachments.push(...files);
       break;
     case "material": {
-      const name = text(p.name, "material", 300);
-      if (sameNames(state.catalog, name)) fail(409, "Material já cadastrado.");
-      state.catalog.push({
-        id: "MAT-" + crypto.randomUUID(),
+      const existing = p.id ? state.catalog.find((m) => m.id === p.id) : null;
+      if (p.id && !existing) fail(404, "Insumo não encontrado.");
+      const name = text(p.name, "material", 300),
+        unit = text(p.unit, "unidade", 30);
+      if (state.catalog.some((m) => m.id !== existing?.id && normalizeText(m.name) === normalizeText(name)))
+        fail(409, "Material já cadastrado.");
+      const code =
+        optional(p.code, 30).toUpperCase() ||
+        existing?.code ||
+        nextMaterialCode(state.catalog);
+      if (state.catalog.some((m) => m.id !== existing?.id && (m.code || "").toUpperCase() === code))
+        fail(409, "Código de insumo já utilizado.");
+      if (
+        existing &&
+        existing.unit !== unit &&
+        (state.movements.some((m) => m.material === existing.id) ||
+          state.requests.some((r) => r.items.some((i) => i.material === existing.id)))
+      )
+        fail(409, "Unidade não pode ser alterada: o insumo já tem solicitações ou movimentos.");
+      const data = {
+        code,
         name,
-        unit: text(p.unit, "unidade", 30),
-      });
+        unit,
+        category: optional(p.category, 100),
+        spec: optional(p.spec, 300),
+        brand: optional(p.brand, 100),
+      };
+      if (existing) Object.assign(existing, data);
+      else state.catalog.push({ id: "MAT-" + crypto.randomUUID(), ...data });
       break;
     }
     case "supplier": {
@@ -507,7 +532,12 @@ async function apply(db, env, state, actor, p) {
       if (p.id && !existing) fail(404, "Fornecedor não encontrado.");
       if (existing && existing.name !== name)
         fail(400, "Nome de fornecedor existente não pode ser alterado.");
-      const document = optional(p.document, 100);
+      let document = optional(p.document, 100);
+      if (document && !validTaxId(document))
+        fail(400, "CNPJ/CPF inválido. Confira os dígitos.");
+      document = formatTaxId(document);
+      const uf = optional(p.uf, 2).toUpperCase();
+      if (uf && !/^[A-Z]{2}$/.test(uf)) fail(400, "UF inválida.");
       if (
         state.suppliers.some(
           (s) =>
@@ -525,6 +555,12 @@ async function apply(db, env, state, actor, p) {
         contact: optional(p.contact, 300),
         email: optional(p.email, 300),
         phone: optional(p.phone, 100),
+        legalName: optional(p.legalName, 300),
+        address: optional(p.address, 300),
+        city: optional(p.city, 100),
+        uf,
+        paymentTerms: optional(p.paymentTerms, 200),
+        notes: optional(p.notes, 1000),
       };
       if (existing) Object.assign(existing, data);
       else state.suppliers.push({ id: crypto.randomUUID(), ...data });
